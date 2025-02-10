@@ -32,7 +32,7 @@ namespace DataProcessor
         }
 
         // utility
-        public object ColumnName { get { return this.name; } }
+        public object Name { get { return this.name; } }
         public IList<object> Values { get { return this.values; } }
         public int Count => values.Count;
         public bool IsReadOnly { get { return false; } }
@@ -158,9 +158,9 @@ namespace DataProcessor
         }
         public static void print(Series series)
         {
-            Console.WriteLine(series.name);
+            Console.WriteLine(series.Name);
             int rowIndex = 1;
-            foreach (var item in series.values)
+            foreach (var item in series.Values)
             {
                 Console.WriteLine($"{rowIndex} {item}");
             }
