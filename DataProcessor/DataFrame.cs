@@ -11,9 +11,25 @@ namespace DataProcessor
 
     public class DataFrame
     {
-        public DataFrame(Dictionary<string, IList<string>> table)// string for column name, List<string> for value in a column
-        {
+        private List<Series> table;
 
+        public DataFrame(List<Series> table)
+        {
+            this.table = table;
+        }
+
+        public DataFrame(Dictionary<string, IList<object>> items)// string for column name, List<string> for value in a column
+        {
+            if (items == null)
+            {
+                throw new ArgumentNullException($"{nameof(items)} must not be null");
+            }
+            table = new List<Series>();
+            foreach (var columnName in items.Keys)
+            {
+                Series column = new Series(columnName, items[columnName]);
+                table.Add(column);
+            }
         }
     }
 }
