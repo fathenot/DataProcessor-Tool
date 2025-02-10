@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    public class Series: ICollection<object>
+    public class Series : ICollection<object>, IEnumerable<object>
     {
         private string name;
         private IList<object> values;
@@ -155,6 +155,15 @@ namespace DataProcessor
                 if (Equals(this[i], item)) { Indexes.Add(i); }
             }
             return Indexes;
+        }
+        public static void print(Series series)
+        {
+            Console.WriteLine(series.name);
+            int rowIndex = 1;
+            foreach (var item in series.values)
+            {
+                Console.WriteLine($"{rowIndex} {item}");
+            }
         }
     }
 }
