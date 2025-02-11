@@ -36,8 +36,21 @@ namespace DataProcessor
         public IList<object> Values { get { return this.values; } }
         public int Count => values.Count;
         public bool IsReadOnly { get { return false; } }
-        public object this[int index] => values[index];
-
+        public object this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= values.Count)
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
+                return values[index];
+            }
+            set
+            {
+                if (index < 0 || index >= values.Count)
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
+                values[index] = value;
+            }
+        }
         // iterator
         public IEnumerator<object> GetEnumerator()
         {
@@ -107,7 +120,7 @@ namespace DataProcessor
             //main logic of the method
             if (indexTo == indexFrom)
             {
-                return result;
+                return result;  // Trả về danh sách rỗng theo phong cách Python
             }
             for (int i = indexFrom; i != indexTo; i += step)
             {
@@ -121,8 +134,9 @@ namespace DataProcessor
             if (comparer == null)
             {
                 // Sử dụng OrderBy với logic null được đưa về cuối
-                values = values.OrderBy(x => x == null ? 1 : 0)
-                               .ThenBy(x => x)  // Đảm bảo sắp xếp bình thường sau khi xử lý null
+                values = values.OrderBy(x => x != null)
+                               .ThenBy(x => x as IComparable)  // Đảm bảo sắp xếp bình thường sau khi xử lý null
+                               .Concat(values.Where(x => x == null))
                                .ToList();
             }
             else
