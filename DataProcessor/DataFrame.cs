@@ -97,9 +97,9 @@ namespace DataProcessor
         { 
             Series data = this.getColumn(column);
             
-            int[] PosAfterChange = Enumerable.Range(0, this.numRows).ToArray();// this array store the index of origin data that in the right order
+            int[] dataIndex = Enumerable.Range(0, this.numRows).ToArray();// this array store the index of origin data that in the right order
             int columnPos = this.columns.IndexOf(column);
-            Array.Sort(PosAfterChange, (i, j) =>
+            Array.Sort(dataIndex, (i, j) =>
             {
                 object a = data.Values[i];
                 object b = data.Values[j];
@@ -119,14 +119,14 @@ namespace DataProcessor
             });
             if (!ascending)
             {
-                PosAfterChange = PosAfterChange.Reverse().ToArray();
+                dataIndex = dataIndex.Reverse().ToArray();
             }
 
             for(int colIndex = 0; colIndex < column.Length; colIndex++)
             {
                 Series newSeries= new Series(getColumn(columns[colIndex]));
                 newSeries.Clear();
-                for (int rowIndex = 0; rowIndex < PosAfterChange.Length; rowIndex++)
+                for (int rowIndex = 0; rowIndex < dataIndex.Length; rowIndex++)
                 {
                     newSeries.Add(data[rowIndex]);
                 }

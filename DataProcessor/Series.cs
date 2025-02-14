@@ -31,8 +31,8 @@ namespace DataProcessor
             this.values = new List<object> (KeyAndValues.Item2);
         }
 
-        // utility
-        public String Name { get { return this.name; } }
+        // Properties
+        public string Name { get { return this.name; } }
         public IList<object> Values { get { return this.values; } }
         public int Count => values.Count;
         public bool IsReadOnly { get { return false; } }
@@ -51,6 +51,7 @@ namespace DataProcessor
                 values[index] = value;
             }
         }
+
         // iterator
         public IEnumerator<object> GetEnumerator()
         {
@@ -344,6 +345,8 @@ namespace DataProcessor
             }
             return Indexes;
         }
+
+        // print the data frame
         public static void print(Series<DataType> series)
         {
             Console.WriteLine(series.Name);
