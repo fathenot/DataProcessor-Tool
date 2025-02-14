@@ -8,13 +8,15 @@ using System.Data.Common;
 using System.Data.SqlTypes;
 using System.Data;
 using System.ComponentModel.DataAnnotations;
+using System.Reflection.Metadata.Ecma335;
+
 namespace DataProcessor
 {
 
     public class DataFrame
     {
         private List<Series> table;
-        private List<String> columns;
+        private List<string> columns;
         private int numRows;
         public DataFrame(List<Series> table)
         {
@@ -50,8 +52,15 @@ namespace DataProcessor
             this.table = new List<Series>(other.table);
             this.columns = new List<String>(other.Columns);
         }
-        public List<String> Columns => columns;
-        public void Describe() { throw new NotImplementedException("this method is under construction"); }
+        // properties
+        public List<string> Columns => columns;
+
+        // method
+        public void Describe() 
+        { 
+            throw new NotImplementedException("this method is under construction");
+        }
+
         public DataFrame Head(int numberRows = 5)
         {
             if(numberRows < 0) { throw new ArgumentOutOfRangeException("number of rows must not be negative"); }
@@ -62,6 +71,7 @@ namespace DataProcessor
             }
             return new DataFrame(list);
         }
+
         public DataFrame Tail(int numberRows = 5)
         {
             if (numberRows < 0) { throw new ArgumentOutOfRangeException("number of rows must not be negative"); }
@@ -71,6 +81,58 @@ namespace DataProcessor
                 list.Add(new Series(s.Name, s.Values is List<object> listRef ? listRef.GetRange(table[0].Count - numberRows, numberRows) : s.Values.Take(numberRows).ToList()));
             }
             return new DataFrame(list);
+        }
+
+        public Series getColumn(string column)
+        {
+            int colIndex = this.columns.IndexOf(column);
+            if (colIndex == -1)
+            {
+                throw new ArgumentException($" Column {column} is not exist");
+            }
+            return table[colIndex];
+        }
+
+        public void Sort(string column, bool ascending = true) // sort by column
+        { 
+            Series data = this.getColumn(column);
+            
+            int[] PosAfterChange = Enumerable.Range(0, this.numRows).ToArray();// this array store the index of origin data that in the right order
+            int columnPos = this.columns.IndexOf(column);
+            Array.Sort(PosAfterChange, (i, j) =>
+            {
+                object a = data.Values[i];
+                object b = data.Values[j];
+                if (a == null && b != null)
+                {
+                    return -1;
+                }
+                if (a == null && b == null)
+                {
+                    return 0;
+                }
+                if (a != null && b == null)
+                {
+                    return 1;
+                }
+                return Comparer<object>.Default.Compare(a, b);
+            });
+            if (!ascending)
+            {
+                PosAfterChange = PosAfterChange.Reverse().ToArray();
+            }
+
+            for(int colIndex = 0; colIndex < column.Length; colIndex++)
+            {
+                Series newSeries= new Series(getColumn(columns[colIndex]));
+                newSeries.Clear();
+                for (int rowIndex = 0; rowIndex < PosAfterChange.Length; rowIndex++)
+                {
+                    newSeries.Add(data[rowIndex]);
+                }
+                // replace old column to new column
+                table[colIndex] = newSeries;
+            }
 
         }
     }
