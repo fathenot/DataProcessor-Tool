@@ -9,11 +9,16 @@ using System.Data.SqlTypes;
 using System.Data;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection.Metadata.Ecma335;
+using System.Globalization;
+using System.Collections.Generic;
 
 namespace DataProcessor
 {
-
-    public class DataFrame
+    public interface IDataFrame
+    {
+        public List<string> Columns { get; }
+    }
+    public class DataFrame : IDataFrame
     {
         private List<Series> table;
         private List<string> columns;
@@ -28,7 +33,16 @@ namespace DataProcessor
             {
                 this.table.Add(new Series(s));
                 this.columns.Add(s.Name);
-                numRows = Math.Max(0, s.Count);
+                numRows = Math.Max(this.numRows, s.Count);
+            }
+            foreach(Series series in table)
+            {
+                for(int i = 1; i <= this.numRows - series.Count; i++)
+                {
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+                    series.Add(null);
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
+                }
             }
         }
 
@@ -57,8 +71,9 @@ namespace DataProcessor
 
         // method
         public void Describe() 
-        { 
-            throw new NotImplementedException("this method is under construction");
+        {
+            Console.WriteLine($"Number of rows {this.numRows}");
+            Console.WriteLine($"Number of columns {columns.Count}");
         }
 
         public DataFrame Head(int numberRows = 5)
@@ -97,38 +112,35 @@ namespace DataProcessor
         { 
             Series data = this.getColumn(column);
             
-            int[] dataIndex = Enumerable.Range(0, this.numRows).ToArray();// this array store the index of origin data that in the right order
+            int[] dataIndex = Enumerable.Range(0, this.numRows).ToArray();// this array store the row index of origin data that in the right order
             int columnPos = this.columns.IndexOf(column);
+            Comparer<object> comparer = Comparer<object>.Default;
+            // Sort dataIndex based on column values
             Array.Sort(dataIndex, (i, j) =>
             {
                 object a = data.Values[i];
                 object b = data.Values[j];
-                if (a == null && b != null)
+                return (a, b) switch
                 {
-                    return -1;
-                }
-                if (a == null && b == null)
-                {
-                    return 0;
-                }
-                if (a != null && b == null)
-                {
-                    return 1;
-                }
-                return Comparer<object>.Default.Compare(a, b);
+                    (null, null) => 0,
+                    (null, _) => -1,
+                    (_, null) => 1,
+                    _ => comparer.Compare(a, b)
+                };
             });
             if (!ascending)
             {
-                dataIndex = dataIndex.Reverse().ToArray();
+                Array.Reverse(dataIndex);
             }
-
-            for(int colIndex = 0; colIndex < column.Length; colIndex++)
+            // set new values
+            for(int colIndex = 0; colIndex < this.columns.Count; colIndex++)
             {
                 Series newSeries= new Series(getColumn(columns[colIndex]));
+                IList<object> values = newSeries.Values;
                 newSeries.Clear();
                 for (int rowIndex = 0; rowIndex < dataIndex.Length; rowIndex++)
                 {
-                    newSeries.Add(data[rowIndex]);
+                    newSeries.Add(values[dataIndex[rowIndex]]);
                 }
                 // replace old column to new column
                 table[colIndex] = newSeries;

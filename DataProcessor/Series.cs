@@ -155,7 +155,9 @@ namespace DataProcessor
             {
                 throw new ArgumentOutOfRangeException("index is out of range");
             }
+#pragma warning disable CS8601 // Possible null reference assignment.
             this.values[index] = item;
+#pragma warning restore CS8601 // Possible null reference assignment.
         }
         // searching and filter
         public IList<object> Filter(Func<object, bool> filter)
@@ -217,7 +219,9 @@ namespace DataProcessor
             {
                 if (index < 0 || index >= values.Count)
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
+#pragma warning disable CS8603 // Possible null reference return.
                 return values[index];
+#pragma warning restore CS8603 // Possible null reference return.
             }
             set
             {
