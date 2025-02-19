@@ -23,6 +23,8 @@ namespace DataProcessor
         private List<Series> table;
         private List<string> columns;
         private int numRows;
+        
+        //constructor
         public DataFrame(List<Series> table)
         {
             if(table == null) throw new ArgumentNullException("table must not be null");
@@ -68,7 +70,7 @@ namespace DataProcessor
         }
         // properties
         public List<string> Columns => columns;
-
+       
         // method
         public void Describe() 
         {
