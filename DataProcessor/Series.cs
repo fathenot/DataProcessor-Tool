@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace DataProcessor
 {
@@ -12,23 +13,35 @@ namespace DataProcessor
     {
         private string name;
         private IList<object> values;
-        
+        // support class method to check type is valid
+        private bool IsValidType(object? value)
+        {
+            return value == null || value == DBNull.Value ? true : value.GetType() == DataType;
+        }
+
         public Series(string name, IList<object> values)
         {
             this.name = name;
             this.values = values;
+            var nonNullTypes = values.Where(v => v != null).Select(v => v.GetType()).Distinct();
+            DataType = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
         }
-
+        
         public Series(Series other)
         {
+            ArgumentNullException.ThrowIfNull(other);
             this.name = other.name;
             this.values = new List<object>(other.values);
+            this.DataType = other.DataType;
         }
 
         public Series(Tuple<string, IList<object>> KeyAndValues)
         {
             this.name = KeyAndValues.Item1;
             this.values = new List<object> (KeyAndValues.Item2);
+            var tempValuesList = KeyAndValues.Item2;
+            var nonNullTypes = tempValuesList.Where(v => v != null).Select(v => v.GetType()).Distinct();
+            DataType = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
         }
 
         // Properties
@@ -48,9 +61,12 @@ namespace DataProcessor
             {
                 if (index < 0 || index >= values.Count)
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
+                if (!IsValidType(value))
+                    throw new ArgumentException($"Expected type {DataType}, but got {value?.GetType()}");
                 values[index] = value;
             }
         }
+        public Type DataType { get; private set; }
 
         // iterator
         public IEnumerator<object> GetEnumerator()
@@ -64,8 +80,12 @@ namespace DataProcessor
         }
 
         //method
-        public void Add(object item)
+        public void Add(object? item)
         {
+            if (!IsValidType(item))
+            {
+                throw new ArgumentException($"Expected type {DataType}, but got {item?.GetType()}");
+            }
             values.Add(item);
         }
         public bool Remove(object item)
@@ -132,8 +152,13 @@ namespace DataProcessor
 
         public void Sort(Comparer<object>? comparer = null)
         {
+
             if (comparer == null)
             {
+                if (values.Any(x => x != null && x is not IComparable))
+                {
+                    throw new InvalidOperationException("All non-null values must implement IComparable for sorting.");
+                }
                 // Sử dụng OrderBy với logic null được đưa về cuối
                 values = values.OrderBy(x => x != null)
                                .ThenBy(x => x as IComparable)  // Đảm bảo sắp xếp bình thường sau khi xử lý null
@@ -151,19 +176,23 @@ namespace DataProcessor
 
         public void changeItem(int index, object? item)
         {
+            if (!IsValidType(item))
+            {
+                throw new ArgumentException($"Expected type {DataType}, but got {item?.GetType()}");
+            }
             if (index < 0 || index >= values.Count)
             {
-                throw new ArgumentOutOfRangeException("index is out of range");
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
             }
-#pragma warning disable CS8601 // Possible null reference assignment.
-            this.values[index] = item;
-#pragma warning restore CS8601 // Possible null reference assignment.
+            values[index] = item ?? DBNull.Value; // Dùng DBNull.Value để thể hiện null trong Series
         }
+
         // searching and filter
         public IList<object> Filter(Func<object, bool> filter)
         {
             return values.AsEnumerable().Where(filter).ToList();
         }
+
         public IList<int> Find(object? item)
         {
             IList<int> Indexes = new List<int>();
@@ -173,6 +202,7 @@ namespace DataProcessor
             }
             return Indexes;
         }
+        // show the series
         public static void print(Series series)
         {
             Console.WriteLine(series.Name);
