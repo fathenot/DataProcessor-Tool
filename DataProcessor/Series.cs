@@ -19,6 +19,7 @@ namespace DataProcessor
             return value == null || value == DBNull.Value ? true : value.GetType() == DataType;
         }
 
+        //constructor
         public Series(string name, IList<object> values)
         {
             this.name = name;
