@@ -350,7 +350,7 @@ namespace DataProcessor
             return Indexes;
         }
 
-        // print the data frame
+        // print the series
         public static void print(Series<DataType> series)
         {
             Console.WriteLine(series.Name);
