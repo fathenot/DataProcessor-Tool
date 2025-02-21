@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,74 +11,135 @@ using System.Xml;
 
 namespace DataProcessor
 {
-    public class Series : ICollection<object>, IEnumerable<object>
+    public interface ISeries
     {
-        private string name;
-        private IList<object> values;
-        // support class method to check type is valid
-        private bool IsValidType(object? value)
+        string? Name { get; }
+        IReadOnlyList<object> Values { get; }
+        Type dType { get;}
+        bool IsReadOnly { get; }
+        void Clear();
+        void Add(object? item);
+        public bool IsValidType(object? value);
+        public int Count { get; }
+    }
+    public class Series : ISeries, ICollection<object>, IEnumerable
+    {
+        private string? name;
+        private IList<object>? values;
+        private Type dtype;
+
+        // support method to check type is valid to add the data frame
+        public bool IsValidType(object? value)
         {
-            return value == null || value == DBNull.Value ? true : value.GetType() == DataType;
+            return value == null || value == DBNull.Value ? true : value.GetType() == dType;
         }
 
         //constructor
-        public Series(string name, IList<object> values)
+        public Series(string? name, IList<object>? values)
         {
+            if(name == null && values == null)
+            {
+                throw new ArgumentNullException("At least name or values not null");
+            }
             this.name = name;
             this.values = values;
-            var nonNullTypes = values.Where(v => v != null).Select(v => v.GetType()).Distinct();
-            DataType = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
+            if(values != null)
+            {
+                var nonNullTypes = values.Where(v => v != null).Select(v => v.GetType()).Distinct();
+                dType = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
+            }
+            else
+            {
+                this.dType = typeof(object);
+            }
+            this.dtype = dType;
         }
         
         public Series(Series other)
         {
+            if(other == null)
+            {
+                throw new ArgumentNullException("other series must not be null");
+            }
             ArgumentNullException.ThrowIfNull(other);
             this.name = other.name;
-            this.values = new List<object>(other.values);
-            this.DataType = other.DataType;
+            if (other.values != null)
+            {
+                this.values = new List<object>(other.values);
+            }
+            else if (other.values == null)
+            {
+                this.values = null;
+            }
+            this.dtype = other.dType;
         }
 
         public Series(Tuple<string, IList<object>> KeyAndValues)
         {
+            if(KeyAndValues == null)
+            {
+                throw new ArgumentNullException($"KeyAndValues {nameof(KeyAndValues)} must not be null");
+            }
             this.name = KeyAndValues.Item1;
-            this.values = new List<object> (KeyAndValues.Item2);
+            this.values = new List<object>(KeyAndValues.Item2);
             var tempValuesList = KeyAndValues.Item2;
             var nonNullTypes = tempValuesList.Where(v => v != null).Select(v => v.GetType()).Distinct();
-            DataType = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
+            dType = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
+            this.dtype = dType;
         }
 
         // Properties
-        public string Name { get { return this.name; } }
-        public IList<object> Values { get { return this.values; } }
-        public int Count => values.Count;
+        public string? Name { get { return this.name; } }
+        public IReadOnlyList<object> Values => values == null ? throw new Exception("values list is null") : values as IReadOnlyList<object> ?? values.ToList();
+        public int Count => values == null ? 0 : values.Count;
         public bool IsReadOnly { get { return false; } }
         public object this[int index]
         {
             get
             {
+                if(values == null)
+                {
+                    throw new Exception("values list is null");
+                }
                 if (index < 0 || index >= values.Count)
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
                 return values[index];
             }
             set
             {
+                if (values == null)
+                {
+                    throw new Exception("values list is null");
+                }
                 if (index < 0 || index >= values.Count)
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
                 if (!IsValidType(value))
-                    throw new ArgumentException($"Expected type {DataType}, but got {value?.GetType()}");
+                    throw new ArgumentException($"Expected type {dType}, but got {value?.GetType()}");
                 values[index] = value;
             }
         }
-        public Type DataType { get; private set; }
+        public Type dType
+        {
+            get => dtype;
+            private set => dtype = value;
+        }
 
         // iterator
         public IEnumerator<object> GetEnumerator()
         {
+            if(values == null)
+            {
+                throw new Exception("values list is null");
+            }
             return values.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
+            if (values == null)
+            {
+                throw new Exception("values list is null");
+            }
             return values.GetEnumerator();
         }
 
@@ -85,33 +148,42 @@ namespace DataProcessor
         {
             if (!IsValidType(item))
             {
-                throw new ArgumentException($"Expected type {DataType}, but got {item?.GetType()}");
+                throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}");
             }
-            values.Add(item);
+            if(values == null)
+            {
+                this.values = new List<object>();
+                values.Add(item);
+            }
         }
         public bool Remove(object item)
         {
-            return values.Remove(item);
+            return values == null? false : values.Remove(item);
         }
         public void Clear()
         {
-            values.Clear();
+            if (values != null) values.Clear();
         }
         public bool Contains(object item)
         {
-            return values.Contains(item);
+            return values == null ? false : values.Contains(item);
         }
         public void CopyTo(object[] array, int arrayIndex)
         {
+            if(values == null)
+            {
+                return;
+            }
             values.CopyTo((object[])array, arrayIndex);
         }
         
-        public IList<object> getItem(int indexFrom, int indexTo, int step = 1)
+        // truy xuất
+        public IList<object> GetItem(int indexFrom, int indexTo, int step = 1)
         {
             IList<object> result = new List<object>();
 
             // check valid argument
-            if(indexFrom < 0 || indexTo < 0 || indexFrom >= values.Count || indexTo >= values.Count)
+            if (indexFrom < 0 || indexTo < 0 || values == null || indexFrom >= values.Count || indexTo >= values.Count)
             {
                 throw new ArgumentOutOfRangeException("Index is out of range");
             }
@@ -151,9 +223,42 @@ namespace DataProcessor
             return result;
         }
 
+        // change type of data
+        public Series Astype(Type newType)
+        {
+            if (newType == null) throw new ArgumentNullException(nameof(newType));
+
+            if(this.values == null)
+            {
+                return new Series(this.Name, null);
+            }
+            IList<object> newValues = values.Select(v =>
+            {
+                if (v == null || v == DBNull.Value) return DBNull.Value;
+
+                try
+                {
+                    if (newType == typeof(DateTime) && v is string str)
+                    {
+                        return DateTime.TryParse(str, out DateTime dt) ? dt : DBNull.Value;
+                    }
+                    return Convert.ChangeType(v, newType);
+                }
+                catch
+                {
+                    return DBNull.Value; // Nếu lỗi thì giữ nguyên giá trị null
+                }
+            }).ToList();
+
+            return new Series(this.Name, newValues);
+        }
+
         public void Sort(Comparer<object>? comparer = null)
         {
-
+            if(values == null)
+            {
+                return;
+            }
             if (comparer == null)
             {
                 if (values.Any(x => x != null && x is not IComparable))
@@ -177,9 +282,13 @@ namespace DataProcessor
 
         public void changeItem(int index, object? item)
         {
+            if(values == null)
+            {
+                throw new ArgumentException($"list of value is null");
+            }
             if (!IsValidType(item))
             {
-                throw new ArgumentException($"Expected type {DataType}, but got {item?.GetType()}");
+                throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}");
             }
             if (index < 0 || index >= values.Count)
             {
@@ -191,6 +300,10 @@ namespace DataProcessor
         // searching and filter
         public IList<object> Filter(Func<object, bool> filter)
         {
+            if(values == null)
+            {
+                throw new Exception($"Values list is null");
+            }
             return values.AsEnumerable().Where(filter).ToList();
         }
 
@@ -216,7 +329,7 @@ namespace DataProcessor
     }
 
 
-    public class Series<DataType> : ICollection<DataType>
+    public class Series<DataType> : ICollection<DataType>, ISeries
     {
         private string name;
         private IList<DataType> values;
@@ -230,7 +343,7 @@ namespace DataProcessor
         public Series(Series <DataType> other)
         {
             this.name = other.name;
-            this.values = new List<DataType>(other.Values);
+            this.values = new List<DataType>((IEnumerable<DataType>)other.Values);
         }
 
         public Series(Tuple<string, IList<DataType>> KeyAndValues)
@@ -241,7 +354,6 @@ namespace DataProcessor
 
         // utility
         public String Name { get { return this.name; } }
-        public IReadOnlyList<DataType> Values => values as IReadOnlyList<DataType> ?? values.ToList();
         public int Count => values.Count;
         public bool IsReadOnly => false;
         public object this[int index]
@@ -250,9 +362,11 @@ namespace DataProcessor
             {
                 if (index < 0 || index >= values.Count)
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
-#pragma warning disable CS8603 // Possible null reference return.
+                if(values == null)
+                {
+                    throw new ArgumentException("list of values is null");
+                }
                 return values[index];
-#pragma warning restore CS8603 // Possible null reference return.
             }
             set
             {
@@ -261,6 +375,10 @@ namespace DataProcessor
                 values[index] = (DataType)value;
             }
         }
+        public Type dType => typeof(DataType);
+        public IReadOnlyList<object> Values => values.Cast<object>().ToList();
+
+
         // iterator
         public IEnumerator<DataType> GetEnumerator()
         {
@@ -272,8 +390,13 @@ namespace DataProcessor
             return values.GetEnumerator();
         }
 
-        //method
-        public void Add (DataType item)
+        //method 
+        public void Add (object? item)
+        {
+            if (this.IsValidType(item)) values.Add((DataType?)item);
+
+        }
+        public void Add(DataType item)
         {
             values.Add(item);
         }
@@ -391,5 +514,11 @@ namespace DataProcessor
                 Console.WriteLine($"{rowIndex} {item}");
             }
         }
+      
+        public bool IsValidType(object? value)
+        {
+            return value == null || value == DBNull.Value ? true : value.GetType() == dType;
+        }
     }
+  
 }
