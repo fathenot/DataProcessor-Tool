@@ -16,24 +16,26 @@ namespace DataProcessor
 {
     public interface IDataFrame
     {
-        public List<string> Columns { get; }
+        public List<string?> Columns { get; }
     }
+
+
     public class DataFrame : IDataFrame
     {
-        private List<Series> table;
-        private List<string> columns;
+        private List<ISeries> table;
+        private List<string?> columns;
         private int numRows;
         
         //constructor
         public DataFrame(List<Series> table)
         {
             if(table == null) throw new ArgumentNullException("table must not be null");
-            this.table = new List<Series>(table);
-            this.columns = new List<String>();
+            this.table = new List<ISeries>(table);
+            this.columns = new List<string?>();
             numRows = 0;
             foreach(Series s in table)
             {
-                this.table.Add(new Series(s));
+                this.table.Add(s);
                 this.columns.Add(s.Name);
                 numRows = Math.Max(this.numRows, s.Count);
             }
@@ -54,7 +56,7 @@ namespace DataProcessor
             {
                 throw new ArgumentNullException($"{nameof(items)} must not be null");
             }
-            table = new List<Series>();
+            table = new List<ISeries>();
             columns = new List<String>();
             foreach (var columnName in items.Keys)
             {
@@ -65,11 +67,11 @@ namespace DataProcessor
         }
         public DataFrame(DataFrame other)
         {
-            this.table = new List<Series>(other.table);
+            this.table = new List<ISeries>(other.table);
             this.columns = new List<String>(other.Columns);
         }
         // properties
-        public List<string> Columns => columns;
+        public List<string?> Columns => columns;
        
         // method
         public void Describe() 
@@ -100,7 +102,7 @@ namespace DataProcessor
             return new DataFrame(list);
         }
 
-        public Series getColumn(string column)
+        public ISeries GetColumn(string column)
         {
             int colIndex = this.columns.IndexOf(column);
             if (colIndex == -1)
@@ -112,7 +114,7 @@ namespace DataProcessor
 
         public void Sort(string column, bool ascending = true) // sort by column
         { 
-            Series data = this.getColumn(column);
+            ISeries data = this.GetColumn(column);
             
             int[] dataIndex = Enumerable.Range(0, this.numRows).ToArray();// this array store the row index of origin data that in the right order
             int columnPos = this.columns.IndexOf(column);
@@ -137,8 +139,8 @@ namespace DataProcessor
             // set new values
             for(int colIndex = 0; colIndex < this.columns.Count; colIndex++)
             {
-                Series newSeries= new Series(getColumn(columns[colIndex]));
-                IList<object> values = newSeries.Values;
+                ISeries newSeries= (GetColumn(columns[colIndex]));
+                IList<object> values = newSeries.Values.ToList();
                 newSeries.Clear();
                 for (int rowIndex = 0; rowIndex < dataIndex.Length; rowIndex++)
                 {
