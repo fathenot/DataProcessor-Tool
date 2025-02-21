@@ -13,5 +13,12 @@ namespace DataProcessor
         {
             (b, a) = (a, b);
         }
+        internal static void checkNull(IList<object>? list)
+        {
+            if(list == null)
+            {
+                throw new Exception($"{nameof(list)} is null");
+            }
+        }
     }
 }
