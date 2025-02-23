@@ -6,18 +6,19 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    // this is class contains methods only used by developers 
+    // this is class contains methods only used by this library developers 
     static internal class SupportMethods
     {
-        internal static void Swap<T>(ref T? a, ref T? b)
+        internal static void Swap<T>(ref T a, ref T b)
         {
             (b, a) = (a, b);
         }
-        internal static void checkNull(IList<object>? list)
+
+        internal static void CheckNull(object? value)
         {
-            if(list == null)
+            if(value == null)
             {
-                throw new Exception($"{nameof(list)} is null");
+                throw new Exception($"{nameof(value)} is null");
             }
         }
     }
