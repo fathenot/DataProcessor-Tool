@@ -17,6 +17,7 @@ namespace DataProcessor
     public interface IDataFrame
     {
         public List<string?> Columns { get; }
+        //public IDataFrame Clone()
     }
 
 
@@ -27,7 +28,7 @@ namespace DataProcessor
         private int numRows;
         
         //constructor
-        public DataFrame(List<Series> table)
+        public DataFrame(List<ISeries> table)
         {
             if(table == null) throw new ArgumentNullException("table must not be null");
             this.table = new List<ISeries>(table);
@@ -50,14 +51,14 @@ namespace DataProcessor
             }
         }
 
-        public DataFrame(Dictionary<string, IList<object>> items)// string for column name, List<string> for values in a column
+        public DataFrame(Dictionary<string, List<object>> items)// string for column name, List<string> for values in a column
         {
             if (items == null)
             {
                 throw new ArgumentNullException($"{nameof(items)} must not be null");
             }
             table = new List<ISeries>();
-            columns = new List<String>();
+            columns = new List<string?>();
             foreach (var columnName in items.Keys)
             {
                 Series column = new Series(columnName, items[columnName]);
@@ -68,7 +69,7 @@ namespace DataProcessor
         public DataFrame(DataFrame other)
         {
             this.table = new List<ISeries>(other.table);
-            this.columns = new List<String>(other.Columns);
+            this.columns = new List<string?>(other.Columns);
         }
         // properties
         public List<string?> Columns => columns;
@@ -83,7 +84,7 @@ namespace DataProcessor
         public DataFrame Head(int numberRows = 5)
         {
             if(numberRows < 0) { throw new ArgumentOutOfRangeException("number of rows must not be negative"); }
-            List<Series> list = new List<Series>();
+            List<ISeries> list = new List<ISeries>();
             foreach (Series s in this.table)
             {
                 list.Add(new Series(s.Name, s.Values is List<object> listRef ? listRef.GetRange(0, Math.Min(numberRows, listRef.Count)) : s.Values.Take(numberRows).ToList()));
@@ -94,7 +95,7 @@ namespace DataProcessor
         public DataFrame Tail(int numberRows = 5)
         {
             if (numberRows < 0) { throw new ArgumentOutOfRangeException("number of rows must not be negative"); }
-            List<Series> list = new List<Series>();
+            List<ISeries> list = new List<ISeries>();
             foreach (Series s in this.table)
             {
                 list.Add(new Series(s.Name, s.Values is List<object> listRef ? listRef.GetRange(table[0].Count - numberRows, numberRows) : s.Values.Take(numberRows).ToList()));
@@ -102,7 +103,7 @@ namespace DataProcessor
             return new DataFrame(list);
         }
 
-        public ISeries GetColumn(string column)
+        public ISeries GetColumn(string? column)
         {
             int colIndex = this.columns.IndexOf(column);
             if (colIndex == -1)
@@ -122,8 +123,8 @@ namespace DataProcessor
             // Sort dataIndex based on column values
             Array.Sort(dataIndex, (i, j) =>
             {
-                object a = data.Values[i];
-                object b = data.Values[j];
+                object? a = data.Values[i];
+                object? b = data.Values[j];
                 return (a, b) switch
                 {
                     (null, null) => 0,
@@ -139,8 +140,8 @@ namespace DataProcessor
             // set new values
             for(int colIndex = 0; colIndex < this.columns.Count; colIndex++)
             {
-                ISeries newSeries= (GetColumn(columns[colIndex]));
-                IList<object> values = newSeries.Values.ToList();
+                ISeries newSeries= GetColumn(columns[colIndex]);
+                IList<object?> values = newSeries.Values.ToList();
                 newSeries.Clear();
                 for (int rowIndex = 0; rowIndex < dataIndex.Length; rowIndex++)
                 {
