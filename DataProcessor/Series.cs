@@ -22,6 +22,7 @@ namespace DataProcessor
         public bool IsValidType(object? value);
         public int Count { get; }
         public ISeries Clone();
+        public ISeries AsType(Type NewType, bool ForceCast = false);
     }
 
 
@@ -208,31 +209,45 @@ namespace DataProcessor
             return result;
         }
 
-        public Series Astype(Type newType)
+        public ISeries AsType(Type NewType, bool ForceCast = false)
         {
-            if (newType == null) throw new ArgumentNullException(nameof(newType));
+            if (NewType == null) throw new ArgumentNullException(nameof(NewType));
 
-            if(this.values == null)
+            if (this.values == null)
             {
                 return new Series(this.Name, null);
             }
-            IList<object> newValues = values.Select(v =>
+
+            var newValues = new List<object>(values.Count);
+            // add new value to newValues to create new Series
+            foreach (var v in values)
             {
-                if (v == null || v == DBNull.Value) return DBNull.Value;
+                if (v == null || v == DBNull.Value)
+                {
+                    newValues.Add(DBNull.Value);
+                    continue;
+                }
 
                 try
                 {
-                    if (newType == typeof(DateTime) && v is string str)
+                    if (NewType == typeof(DateTime) && v is string str)
                     {
-                        return DateTime.TryParse(str, out DateTime dt) ? dt : DBNull.Value;
+                        newValues.Add(DateTime.TryParse(str, out DateTime dt) ? dt :
+                                      (ForceCast ? throw new InvalidCastException($"Cannot convert {str} to DateTime") : DBNull.Value));
                     }
-                    return Convert.ChangeType(v, newType);
+                    else
+                    {
+                        newValues.Add(Convert.ChangeType(v, NewType));
+                    }
                 }
                 catch
                 {
-                    return DBNull.Value; // Nếu lỗi thì giữ nguyên giá trị null
+                    if (ForceCast)
+                        throw new InvalidCastException($"Cannot convert {v} to {NewType}");
+                    else
+                        newValues.Add(DBNull.Value);
                 }
-            }).ToList();
+            }
 
             return new Series(this.Name, newValues);
         }
@@ -287,7 +302,7 @@ namespace DataProcessor
             }
             return values.AsEnumerable().Where(filter).ToList();
         }
-
+        // find all occurance of item
         public IList<int> Find(object? item)
         {
             IList<int> Indexes = new List<int>();
@@ -537,6 +552,60 @@ namespace DataProcessor
             }
             return new Series<DataType>(this.name, new List<DataType>(values) );
         }
+
+        // Type converting
+        public ISeries AsType(Type NewType, bool ForceCast = false)
+        {
+            SupportMethods.CheckNull(NewType);
+
+            // generate right type of list
+            var listType = typeof(List<>).MakeGenericType(NewType);
+            var newValues = (IList)Activator.CreateInstance(listType)!;
+            object? defaultValue = NewType.IsValueType ? Activator.CreateInstance(NewType) : null;
+
+            foreach (var v in values)
+            {
+                //handle null and DBNull.Value case
+                if (v == null)
+                {
+                    newValues.Add(defaultValue);
+                    continue;
+                }
+                if (v is object obj && obj == DBNull.Value)
+                {
+                    newValues.Add(defaultValue);
+                    continue;
+                }
+
+                // handle the case if the v is not null
+                try
+                {
+                    object convertedValue;
+                    if (NewType == typeof(DateTime) && v is string str)
+                    {
+                        convertedValue = DateTime.TryParse(str, out DateTime dt) ? dt :
+                                        (ForceCast ? throw new InvalidCastException($"Cannot convert {str} to DateTime") : (DateTime)defaultValue!);
+                    }
+                    else
+                    {
+                        convertedValue = Convert.ChangeType(v, NewType);
+                    }
+
+                    newValues.Add(convertedValue);
+                }
+                catch
+                {
+                    if (ForceCast)
+                        throw new InvalidCastException($"Cannot convert {v} to {NewType}");
+                    else
+                        newValues.Add(DBNull.Value);
+                }
+            }
+
+            return (ISeries)Activator.CreateInstance(typeof(Series<>).MakeGenericType(NewType), this.Name, newValues)!;
+        }
+
+
     }
-  
+
 }
