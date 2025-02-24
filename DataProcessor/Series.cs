@@ -1,13 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
+﻿using System.Collections;
 
 namespace DataProcessor
 {
@@ -18,11 +9,140 @@ namespace DataProcessor
         Type dType { get;}
         bool IsReadOnly { get; }
         void Clear();
+        public bool Remove(object? item);
+        public void RemoveAt(int index);
         void Add(object? item);
         public bool IsValidType(object? value);
         public int Count { get; }
         public ISeries Clone();
         public ISeries AsType(Type NewType, bool ForceCast = false);
+        public IList<int> Find(object? item);
+        public object? this[int index] { get; set; }
+        public ISeries View(ValueTuple<int, int, int> slice);
+    }
+
+    public class SeriesSliceView : ISeries, IEnumerable
+    {
+        private ISeries _original;
+        private readonly int _start;
+        private readonly int _end;
+        private readonly int _step;
+        private readonly List<int> indices;
+
+        public SeriesSliceView(ISeries original, int start, int end, int step)
+        {
+            _original = original ?? throw new ArgumentNullException(nameof(original));
+            if (step == 0) throw new ArgumentException("step must not be zero", nameof(step));
+            _start = start;
+            _end = end;
+            _step = step;
+
+            // set indices
+            indices = new List<int>();
+            if (step > 0)
+            {
+                for (int i = start; i <= end && i < _original.Count; i += step)
+                {
+                    indices.Add(i);
+                }
+            }
+            else
+            {
+                for (int i = start; i >= end && i >= 0; i += step)
+                {
+                    indices.Add(i);
+                }
+            }
+        }
+
+        // utilities
+        public IReadOnlyList<object?> Values
+        {
+            get
+            {
+                // Trả về một danh sách giá trị tham chiếu tới giá trị gốc theo slice
+                return indices.Select(idx => _original[idx]).ToList();
+            }
+        }
+        public Type dType => _original.dType;
+
+        public bool IsReadOnly => _original.IsReadOnly;
+
+        public int Count => indices.Count;
+        public string? Name => _original.Name;
+        public void Clear()
+        {
+            _original.Clear();
+        }
+        public ISeries AsType(Type NewType, bool ForceCast = false)
+        {
+            throw new NotSupportedException("AsType is not supported on a slice view. Please clone the view first.");
+        }
+        public object? this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= Count)
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                return _original[indices[index]];
+            }
+            set
+            {
+                if (index < 0 || index >= Count)
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                _original[indices[index]] = value;
+            }
+        }
+        public ISeries Clone() => _original.Clone().View((_start, _end, _step));
+        public bool IsValidType(object? item)
+        {
+            return this._original.IsValidType(item);
+        }
+        public ISeries View(ValueTuple<int, int,int> slice)
+        {
+            int start = slice.Item1;
+            int end = slice.Item2;
+            int step = slice.Item3;
+            return new SeriesSliceView(this, start, end, step);
+        }
+        //removal
+        public void RemoveAt(int index)
+        {
+            if(index < 0 || index >= indices.Count)
+            {
+                throw new ArgumentOutOfRangeException("index is out of range", nameof(index));
+            }
+            indices.RemoveAt(index);
+        }
+        public bool Remove(object? item)
+        {
+            int removed = indices.RemoveAll(idx => Equals(_original[idx], item));
+            return removed != 0;
+        }
+        //addition
+        public void Add(object? item)
+        {
+            throw new NotSupportedException("Add is not supported in slice view please clone the view first");
+        }
+        public IList<int> Find(object? item)
+        {
+            IList<int> Indexes = new List<int>();
+            for (int i = 0; i < this.Count; i++)
+            {
+                if (Equals(this[i], item)) { Indexes.Add(i); }
+            }
+            return Indexes;
+        }
+
+        //iterator
+        public IEnumerator<object?> GetEnumerator()
+        {
+            foreach (int idx in indices)
+            {
+                yield return _original[idx];
+            }
+        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
 
@@ -141,9 +261,10 @@ namespace DataProcessor
                 values.Add(item);
             }
         }
-        public bool Remove(object item)
+        public bool Remove(object? item)
         {
-            return values == null? false : values.Remove(item);
+            SupportMethods.CheckNull(this.values);
+            return values.Remove(item);
         }
         public void Clear()
         {
@@ -276,6 +397,7 @@ namespace DataProcessor
             }
         }
 
+        // change item 
         public void ChangeItem(int index, object? item)
         {
             if(values == null)
@@ -503,7 +625,7 @@ namespace DataProcessor
             }
         }
 
-        public void changeItem(int index, DataType item)
+        public void ChangeItem(int index, DataType item)
         {
             if (index < 0 || index >= values.Count)
             {
@@ -511,11 +633,13 @@ namespace DataProcessor
             }
             this.values[index] = item;
         }
+        
         // searching and filter
         public IList<DataType> Filter(Func<DataType, bool> filter)
         {
             return values.AsEnumerable().Where(filter).ToList();
         }
+
         public IList<int> Find(DataType? item)
         {
             IList<int> Indexes = new List<int>();
@@ -526,7 +650,10 @@ namespace DataProcessor
             }
             return Indexes;
         }
-
+        public IList<int> Find(object? item)
+        {
+            return this.Find((DataType?)item);
+        }
         // print the series
         public static void print(Series<DataType> series)
         {
