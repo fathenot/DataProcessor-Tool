@@ -364,7 +364,7 @@ namespace DataProcessor
                 return new Series(this.name, null);
             }
             List<object> items = new List<object>();
-            for (int i = this.Count - 1; i > this.Count - 1 - count; i--)
+            for (int i = this.Count - count; i < this.Count; i++)
             {
                 items.Add(this.values[i]);
             }
@@ -681,7 +681,7 @@ namespace DataProcessor
                 throw new ArgumentOutOfRangeException(nameof(count));
             }
             List<DataType> items = new List<DataType>();
-            for (int i = this.Count - 1; i > this.Count - 1 - count; i--)
+            for (int i = this.Count - count; i < this.Count; i++)
             {
                 items.Add(this.values[i]);
             }
