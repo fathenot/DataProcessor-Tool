@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    public interface ISeries<DataType> : IEnumerable<DataType>
+    public interface ISeries<DataType>  : IEnumerable<DataType> where DataType : notnull
     {
         string? Name { get; }
         IReadOnlyList<DataType> Values { get; }
@@ -17,7 +17,6 @@ namespace DataProcessor
         bool Remove(DataType item);
         void Add(DataType item);
         int Count { get; }
-        ISeries<DataType> Clone();
         IList<int> Find(DataType item);
         DataType this[int index] { get; set; }
 
