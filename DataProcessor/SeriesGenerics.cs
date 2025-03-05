@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    public class SeriesSliceView<DataType> : ISeries<DataType>
+    public class SeriesSliceView<DataType> : ISeries<DataType> where DataType:notnull
     {
         private ISeries<DataType> original;
         private List<int> indicies;
@@ -90,7 +90,7 @@ namespace DataProcessor
         {
             indicies.Clear();
         }
-        public ISeries<DataType> Clone()
+        public Series<DataType> Clone()
         {
             List<DataType> newData = new List<DataType>();
             foreach (int index in indicies)
@@ -107,10 +107,11 @@ namespace DataProcessor
         }
     }
 
-    public class Series<DataType> : ICollection<DataType>, ISeries<DataType>
+    public class Series<DataType> : ICollection<DataType>, ISeries<DataType> where DataType : notnull
     {
-        private string name;
+        private string? name;
         private IList<DataType> values;
+        private Dictionary<object, int> indexMap;
         // support method to check type is valid to add the data series
         public bool IsValidType(object? value)
         {
@@ -118,21 +119,40 @@ namespace DataProcessor
         }
 
         //constructor
-        public Series(string name, IList<DataType> values)
+        public Series(string? name, IList<DataType> values, IList<object>? index = null)
         {
 
             this.name = name;
-            this.values = values;
-            if (values == null)
+            this.values = new List<DataType>(values);
+            
+            // handle index
+            indexMap = new Dictionary<object, int>();
+            if (index == null)
             {
-                this.values = new List<DataType>();
+                for (int i = 0; i < values.Count; i++)
+                {
+                    indexMap[i] = i;
+                }
             }
+            else
+            {
+                if (index.Count != values.Count)
+                {
+                    throw new ArgumentException("index size must be same as the value size");
+                }
+                for (int i = 0; i < index.Count; i++)
+                {
+                    indexMap[index[i]] = i;
+                }
+            }
+
         }
         public Series(Series<DataType> other)
         {
             SupportMethods.CheckNull(other);
             this.name = other.name;
             this.values = new List<DataType>((IEnumerable<DataType>)other.Values);
+            this.indexMap = new Dictionary<object, int>(other.indexMap);
         }
         public Series(Tuple<string, IList<DataType>> KeyAndValues)
         {
@@ -146,10 +166,16 @@ namespace DataProcessor
             {
                 this.values = new List<DataType>(KeyAndValues.Item2);
             }
+
+            indexMap = new Dictionary<object, int>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                indexMap[i] = i;
+            }
         }
 
         // utility
-        public String Name { get { return this.name; } }
+        public string? Name { get { return this.name; } }
         public int Count => values.Count;
         public bool IsReadOnly => false;
         public DataType this[int index]
@@ -407,7 +433,7 @@ namespace DataProcessor
         }
 
         // copy
-        public ISeries<DataType> Clone()
+        public Series<DataType> Clone()
         {
             if (this.values == null)
             {
