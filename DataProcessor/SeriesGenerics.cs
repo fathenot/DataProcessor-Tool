@@ -14,9 +14,10 @@ namespace DataProcessor
     {
         private ISeries<DataType> original;
         private List<int> indicies;
+
         public SeriesSliceView(ISeries<DataType> original, ValueTuple<int, int, int> slice)
         {
-            SupportMethods.CheckNull(original);
+            Supporter.CheckNull(original);
             if (slice.Item3 == 0)
             {
                 throw new ArgumentException("step must not be zero");
@@ -46,6 +47,17 @@ namespace DataProcessor
                 {
                     indicies.Add(i);
                 }
+            }
+        }
+        public SeriesSliceView(ISeries<DataType> original, List<int> indicies)
+        {
+            this.original = original;
+            this.indicies = new List<int>(indicies);
+
+            // check for invalid argument
+            if (indicies.Any(x => x >= original.Count || x < 0))
+            {
+                throw new ArgumentException("indicies contain an index out of range");
             }
         }
 
@@ -105,6 +117,38 @@ namespace DataProcessor
         {
             return indicies.Where(index => Equals(item, original[index])).ToList();
         }
+
+        public SeriesSliceView<DataType> View((int start, int end, int step) slice)
+        {
+            if (slice.step == 0)
+                throw new ArgumentException("Step must not be zero", nameof(slice.step));
+
+            if (slice.start < 0 || slice.start >= Count)
+                throw new ArgumentException("Start is out of range", nameof(slice.start));
+
+            if (slice.end < 0 || slice.end >= Count)
+                throw new ArgumentException("End is out of range", nameof(slice.end));
+
+            List<int> newIndices = new List<int>();
+
+            if (slice.step > 0)
+            {
+                for (int i = slice.start; i <= slice.end; i += slice.step)
+                {
+                    newIndices.Add(indicies[i]);
+                }
+            }
+            else
+            {
+                for (int i = slice.start; i >= slice.end; i += slice.step)
+                {
+                    newIndices.Add(indicies[i]);
+                }
+            }
+
+            return new SeriesSliceView<DataType>(original, newIndices);
+        }
+
     }
 
     public class Series<DataType> : ICollection<DataType>, ISeries<DataType> where DataType : notnull
@@ -149,14 +193,14 @@ namespace DataProcessor
         }
         public Series(Series<DataType> other)
         {
-            SupportMethods.CheckNull(other);
+            Supporter.CheckNull(other);
             this.name = other.name;
             this.values = new List<DataType>((IEnumerable<DataType>)other.Values);
             this.indexMap = new Dictionary<object, int>(other.indexMap);
         }
         public Series(Tuple<string, IList<DataType>> KeyAndValues)
         {
-            SupportMethods.CheckNull(KeyAndValues);
+            Supporter.CheckNull(KeyAndValues);
             this.name = KeyAndValues.Item1;
             if (KeyAndValues.Item2 == null)
             {
@@ -192,7 +236,7 @@ namespace DataProcessor
             }
             set
             {
-                SupportMethods.CheckNull(values);
+                Supporter.CheckNull(values);
                 if (index < 0 || index >= values.Count)
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
                 values[index] = (DataType)value;
@@ -354,7 +398,7 @@ namespace DataProcessor
         // utility method
         public ISeries AsType(Type NewType, bool ForceCast = false)
         {
-            SupportMethods.CheckNull(NewType);
+            Supporter.CheckNull(NewType);
 
             // generate right type of list
             var listType = typeof(List<>).MakeGenericType(NewType);
