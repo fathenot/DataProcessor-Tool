@@ -6,21 +6,18 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    public interface ISeries
+    public interface ISeries: IEnumerable<object?>
     {
         public string? Name { get; }
         public IReadOnlyList<object?> Values { get; }
         public Type dType { get; }
         public bool IsReadOnly { get; }
         public void Clear();
-        public bool Remove(object item);
-        public void Add(object item);
+        public bool Remove(object? item);
+        public void Add(object? item, object? index = null);
         public bool IsValidType(object? value);
         public int Count { get; }
-        public ISeries Clone();
         public ISeries AsType(Type NewType, bool ForceCast = false);
-        public IList<int> Find(object? item);
-        public object? this[int index] { get; set; }
-        public ISeries View(ValueTuple<int, int, int> slice);
+        public List<int> Find(object? item);
     }
 }
