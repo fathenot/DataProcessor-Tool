@@ -41,13 +41,17 @@ namespace DataProcessor
                 list.Clear();
             }
 
+            public bool Contains(T value)
+            {
+                return this.list.Contains(value);
+            }
+
             public T GetItem(int index)
             {
                 if (index < 0 || index >= list.Count)
                     throw new IndexOutOfRangeException("Index is out of range.");
                 return list[index];
             }
-
             public IEnumerator<T> GetEnumerator() => list.GetEnumerator();
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
