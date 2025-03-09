@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using NUnit.Framework.Constraints;
+using System.Text;
 
 namespace DataProcessor
 {
@@ -15,7 +16,7 @@ namespace DataProcessor
         private Dictionary<object, List<int>> indexMap;
         private List<object> index;
         private Type dtype;
-        private readonly bool defaltIndex;
+        private readonly bool defaultIndex;
         // inner class
         public class View
         {
@@ -82,7 +83,7 @@ namespace DataProcessor
                 return res.AsType(series.dType);
             }
 
-            public void GetView((object start, object end, int step) slice) // this just change view of the current vỉew
+            public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
             {
                 if (series == null) throw new ArgumentNullException();
                 if (slice.step == 0) throw new ArgumentException("step must not be 0");
@@ -128,6 +129,8 @@ namespace DataProcessor
 
                 this.index = newIndex;
                 this.convertedToIntIdx = NewConvertedToIntIdx;
+                GC.Collect();
+                return this;
             }
 
         }
@@ -146,7 +149,7 @@ namespace DataProcessor
             if(values != null)// infer datatype
             {
                 this.values = new List<object?>(values);
-                var nonNullTypes = values.Where(v => v != null).Select(v => v.GetType()).Distinct();
+                var nonNullTypes = values.Where(v => v != null).Select(v => v!.GetType()).Distinct();
                 dtype = nonNullTypes.Count() == 1 ? nonNullTypes.First() : typeof(object);
             }
             else
@@ -159,7 +162,7 @@ namespace DataProcessor
             indexMap = new Dictionary<object, List<int>>();
             if (index == null)
             {
-                this.defaltIndex = true;
+                this.defaultIndex = true;
                 this.index = Enumerable.Range(0, values.Count-1).Cast<object>().ToList();
                 for (int i = 0; i < values.Count; i++)
                 {
@@ -168,7 +171,7 @@ namespace DataProcessor
             }
             else
             {
-                this.defaltIndex = false;
+                this.defaultIndex = false;
                 this.index = new List<object>(index);
                 if(index.Count != values.Count)
                 {
@@ -239,18 +242,8 @@ namespace DataProcessor
                 }
                 return res;
             }
-            set
-            {
-                if (!this.Contains(index))
-                {
-                    throw new ArgumentException("index not found", nameof(index));
-                }
-                foreach (int i in this.indexMap[index])
-                {
-                    this.values[i] = value;
-                }
-            }
         }
+        public IReadOnlyList<object> Index => this.index;
 
         // iterator
         public IEnumerator<object?> GetEnumerator()
@@ -268,11 +261,11 @@ namespace DataProcessor
         {
             if (!IsValidType(item))
             {
-                throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}");
+                throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}. You must change the đata type to object first");
             }
             if(index == null)
             {
-                if (!defaltIndex)
+                if (!defaultIndex)
                 {
                     throw new ArgumentException("Cannot add null index when index is not default");
                 }
@@ -458,15 +451,18 @@ namespace DataProcessor
         }
 
         // show the series
-        public static void print(Series series)
+        public override string ToString()
         {
-            Console.WriteLine(series.Name);
-            int rowIndex = 1;
-            foreach (var item in series.Values)
+            var sb = new StringBuilder();
+            sb.AppendLine($"Series: {Name ?? "Unnamed"}"); // In tên Series
+            sb.AppendLine("Index | Value");
+            sb.AppendLine("--------------");
+            for (int i = 0; i < values.Count; i++)
             {
-                Console.WriteLine($"{rowIndex} {item}");
+                sb.AppendLine($"{index[i].ToString(),5} | {values[i]?.ToString() ?? "null"}");
             }
-        }
+            return sb.ToString();
+        } 
         // clone
         public ISeries Clone()
         {
@@ -480,6 +476,40 @@ namespace DataProcessor
             }
             values.CopyTo((object?[])array, arrayIndex);
         }
+
+        public Series<DataType> ConvertToGenerics<DataType>() where DataType : notnull
+        {
+            var newValues = new List<DataType>(values.Count);
+            foreach (var v in values)
+            {
+                if (v == null || v == DBNull.Value)
+                {
+                    newValues.Add(default!); // Giá trị mặc định của T
+                    continue;
+                }
+
+                try
+                {
+                    // Nếu v đã là DataType, thêm vào luôn
+                    if (v is DataType castedValue)
+                    {
+                        newValues.Add(castedValue);
+                    }
+                    // Xử lý chuyển đổi kiểu dữ liệu
+                    else
+                    {
+                        object convertedValue = Convert.ChangeType(v, typeof(DataType));
+                        newValues.Add((DataType)convertedValue);
+                    }
+                }
+                catch
+                {
+                    newValues.Add(default!);
+                }
+            }
+            return new Series<DataType>(this.name, newValues, this.index);
+        }
         // methods end here
+        
     }
 }
