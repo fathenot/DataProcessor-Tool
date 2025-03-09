@@ -4,190 +4,235 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    public class SeriesSliceView<DataType> : ISeries<DataType> where DataType:notnull
-    {
-        private ISeries<DataType> original;
-        private List<int> indicies;
-
-        public SeriesSliceView(ISeries<DataType> original, ValueTuple<int, int, int> slice)
-        {
-            Supporter.CheckNull(original);
-            if (slice.Item3 == 0)
-            {
-                throw new ArgumentException("step must not be zero");
-            }
-            if (slice.Item1 < 0 || slice.Item1 >= original.Count)
-            {
-                throw new ArgumentException("Start is out of range", nameof(slice.Item1));
-            }
-            if (slice.Item2 < 0 || slice.Item2 >= original.Count)
-            {
-                throw new ArgumentException("Start is out of range", nameof(slice.Item2));
-            }
-
-            this.original = original;
-            indicies = new List<int>();
-
-            if (slice.Item3 > 0)
-            {
-                for (int i = slice.Item1; i <= slice.Item2; i += slice.Item3)
-                {
-                    indicies.Add(i);
-                }
-            }
-            else
-            {
-                for (int i = slice.Item1; i >= slice.Item2; i += slice.Item3)
-                {
-                    indicies.Add(i);
-                }
-            }
-        }
-        public SeriesSliceView(ISeries<DataType> original, List<int> indicies)
-        {
-            this.original = original;
-            this.indicies = new List<int>(indicies);
-
-            // check for invalid argument
-            if (indicies.Any(x => x >= original.Count || x < 0))
-            {
-                throw new ArgumentException("indicies contain an index out of range");
-            }
-        }
-
-        // utilities
-        public int Count => indicies.Count;
-        public Type dType => typeof(DataType);
-        public bool IsReadOnly => false;
-        public DataType this[int index]
-        {
-            get
-            {
-                if (index < 0 || index >= Count)
-                    throw new ArgumentOutOfRangeException(nameof(index));
-                return original[indicies[index]];
-            }
-            set
-            {
-                if (index < 0 || index >= Count)
-                    throw new ArgumentOutOfRangeException(nameof(index));
-                original[indicies[index]] = value;
-            }
-        }
-        public string? Name => original.Name;
-        public IReadOnlyList<DataType> Values
-        {
-            get
-            {
-                var values = indicies.Select(index => original[index]).ToList();
-                return values.AsReadOnly();
-            }
-        }
-        public void Add(DataType item)
-        {
-            throw new NotSupportedException($"cannot add {nameof(item)} to the view of the series");
-        }
-        public bool Remove(DataType item) => throw new NotSupportedException($"cannot remove {nameof(item)} to the view of the series");
-        public ISeries<DataType> AsType(Type NewType, bool ForceCast = false)
-        {
-            throw new NotSupportedException("AsType is not supported on a slice view. Please clone the view first.");
-        }
-        public void Clear()
-        {
-            indicies.Clear();
-        }
-        public Series<DataType> Clone()
-        {
-            List<DataType> newData = new List<DataType>();
-            foreach (int index in indicies)
-            {
-                newData.Add(original[index]);  // Copy từng phần tử từ original
-            }
-
-            // Tạo một Series mới hoàn toàn từ dữ liệu đã copy
-            return new Series<DataType>(original.Name, newData);
-        }
-        public IList<int> Find(DataType item)
-        {
-            return indicies.Where(index => Equals(item, original[index])).ToList();
-        }
-
-        public SeriesSliceView<DataType> View((int start, int end, int step) slice)
-        {
-            if (slice.step == 0)
-                throw new ArgumentException("Step must not be zero", nameof(slice.step));
-
-            if (slice.start < 0 || slice.start >= Count)
-                throw new ArgumentException("Start is out of range", nameof(slice.start));
-
-            if (slice.end < 0 || slice.end >= Count)
-                throw new ArgumentException("End is out of range", nameof(slice.end));
-
-            List<int> newIndices = new List<int>();
-
-            if (slice.step > 0)
-            {
-                for (int i = slice.start; i <= slice.end; i += slice.step)
-                {
-                    newIndices.Add(indicies[i]);
-                }
-            }
-            else
-            {
-                for (int i = slice.start; i >= slice.end; i += slice.step)
-                {
-                    newIndices.Add(indicies[i]);
-                }
-            }
-
-            return new SeriesSliceView<DataType>(original, newIndices);
-        }
-
-    }
-
     public class Series<DataType> : ICollection<DataType>, ISeries<DataType> where DataType : notnull
     {
         private string? name;
-        private IList<DataType> values;
-        private Dictionary<object, int> indexMap;
+        private List<DataType> values;
+        private Dictionary<object, List<int>> indexMap;
+        private List<object> index;
         // support method to check type is valid to add the data series
+
+        public class View
+        {
+            private Series<DataType> Series;
+            private List<object> index;
+            Supporter.OrderedSet<int> convertedToIntIdx = new Supporter.OrderedSet<int>();
+
+            public View(Series<DataType> series, List<object> index)
+            {
+                if (series == null || index == null) throw new ArgumentNullException();
+
+                Series = series;
+                this.index = new List<object>();
+
+                // Kiểm tra nhãn có tồn tại không
+                if (index.Any(v => !this.Series.indexMap.ContainsKey(v)))
+                    throw new IndexOutOfRangeException("Index out of range");
+
+                // Kiểm tra số lượng mỗi nhãn
+                Dictionary<object, int> indexCount = new Dictionary<object, int>();
+                foreach (var i in index)
+                {
+                    if (!indexCount.ContainsKey(i))
+                        indexCount[i] = 0;
+                    indexCount[i]++;
+                }
+
+                foreach (var pair in indexCount)
+                {
+                    if (pair.Value > this.Series.indexMap[pair.Key].Count)
+                        throw new ArgumentException($"Label {pair.Key} requested {pair.Value} times, but only {this.Series.indexMap[pair.Key].Count} available");
+                }
+
+                // Nếu hợp lệ, gán index
+                this.index = new List<object>(index);
+            }
+
+
+            public View(Series<DataType> series, (object start, object end, int step) slice)
+            {
+                if (series == null) throw new ArgumentNullException();
+                if (slice.step == 0) throw new ArgumentException("step must not be 0");
+                this.index = new List<object>();
+                this.Series = series;
+                if (!Series.indexMap.TryGetValue(slice.start, out var startList))
+                    throw new ArgumentException("start is not exist");
+
+                if (!Series.indexMap.TryGetValue(slice.end, out var endList))
+                    throw new ArgumentException("end is not exist");
+
+
+                List<ValueTuple<int, int>> position = new List<(int, int)>();
+                for (int i = 0; i < Math.Min(startList.Count, endList.Count); i++)
+                {
+                    position.Add((startList[i], endList[i]));
+                }
+
+                // generate index
+                foreach (var pair in position)
+                {
+                    if (slice.step > 0)
+                    {
+                        for (int i = pair.Item1; i <= pair.Item2; i += slice.step)
+                        {
+                            if (this.convertedToIntIdx.Add(i)) index.Add(series.index[i]);
+                        }
+                    }
+                    if (slice.step < 0)
+                    {
+                        for (int i = pair.Item1; i >= pair.Item2; i += slice.step)
+                        {
+                            if (this.convertedToIntIdx.Add(i)) index.Add(series.index[i]);
+                        }
+                    }
+
+                }
+            }
+
+            public View GetView(List<object> subIndex)
+            {
+                if (subIndex.Any(v => !this.index.Contains(v)))
+                    throw new ArgumentOutOfRangeException("Sub-index contains values not in the current View");
+
+                return new View(this.Series, subIndex);
+            }
+            public Series<DataType> ToSeries(string? name = null)
+            {
+                List<DataType> newValues = new List<DataType>();
+                List<object> newIndex = new List<object>();
+
+                foreach (var idx in this.index)
+                {
+                    if (this.Series.indexMap.TryGetValue(idx, out List<int>? positions))
+                    {
+                        foreach (var pos in positions)
+                        {
+                            newValues.Add(this.Series.Values[pos]);
+                            newIndex.Add(idx);
+                        }
+                    }
+                }
+
+                return new Series<DataType>(name, newValues, newIndex);
+            }
+
+            public void UpdateValue(object idx, DataType newValue)
+            {
+                if (!index.Contains(idx))
+                    throw new KeyNotFoundException("Index not in View");
+
+                // Chỉ cập nhật những phần tử thuộc View
+                foreach (var pos in Series.indexMap[idx])
+                {
+                    if (convertedToIntIdx.Contains(pos))
+                        Series.values[pos] = newValue;
+                }
+            }
+
+            public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
+            {
+                if (Series == null) throw new ArgumentNullException();
+                if (slice.step == 0) throw new ArgumentException("step must not be 0");
+                if (!this.index.Contains(slice.start)) { throw new ArgumentException("start is not exist"); }
+                if (!this.index.Contains(slice.end)) { throw new ArgumentException("end is not exist"); }
+
+                List<object> newIndex = new List<object>();
+                Supporter.OrderedSet<int> NewConvertedToIntIdx = new Supporter.OrderedSet<int>();
+
+                // find start
+                var startIndex = this.index
+                                .Select((value, index) => (value, index))  // Đính kèm index vào từng phần tử
+                                .Where(pair => Equals(pair.value, slice.start))       // Lọc ra các phần tử có giá trị bằng target
+                                .Select(pair => pair.index)                // Lấy index của các phần tử đó
+                                .ToList();
+                var endIndex = this.index
+                              .Select((value, index) => (value, index))  // Đính kèm index vào từng phần tử
+                              .Where(pair => Equals(pair.value, slice.end))       // Lọc ra các phần tử có giá trị bằng target
+                              .Select(pair => pair.index)                // Lấy index của các phần tử đó
+                              .ToList();
+                for (int i = 0; i < Math.Min(startIndex.Count, endIndex.Count); i++)
+                {
+                    int startPos = startIndex[i];
+                    int endPos = endIndex[i];
+
+                    if (slice.step > 0)
+                    {
+                        for (int j = startPos; j <= endPos; j += slice.step)
+                        {
+                            if (NewConvertedToIntIdx.Add(j))
+                                newIndex.Add(this.index[j]);
+                        }
+                    }
+                    else
+                    {
+                        for (int j = startPos; j >= endPos; j += slice.step)
+                        {
+                            if (NewConvertedToIntIdx.Add(j))
+                                newIndex.Add(this.index[j]);
+                        }
+                    }
+                }
+
+                this.index = newIndex;
+                this.convertedToIntIdx = NewConvertedToIntIdx;
+                GC.Collect();
+                return this;
+            }
+        }
+
         public bool IsValidType(object? value)
         {
             return value == null || value == DBNull.Value ? true : this.dType.IsAssignableFrom(value.GetType());
         }
 
         //constructor
-        public Series(string? name, IList<DataType> values, IList<object>? index = null)
+        
+        public Series(string? name, List<DataType> values, IList<object>? index = null)
         {
-
             this.name = name;
-            this.values = new List<DataType>(values);
-            
-            // handle index
-            indexMap = new Dictionary<object, int>();
+            if(values == null)
+            {
+                this.values = new List<DataType>();
+            }
+            else
+            {
+                this.values = new List<DataType>(values);
+            }
+
+                // handle index
+            indexMap = new Dictionary<object, List<int>>();         
             if (index == null)
             {
-                for (int i = 0; i < values.Count; i++)
+                this.index = new List<object>();
+                for (int i = 0; i < this.values.Count; i++)
                 {
-                    indexMap[i] = i;
+                    indexMap[i] = new List<int> { i };
+                    this.index.Add(i);
                 }
             }
             else
             {
-                if (index.Count != values.Count)
+                if (index.Count != this.values.Count)
                 {
                     throw new ArgumentException("index size must be same as the value size");
                 }
                 for (int i = 0; i < index.Count; i++)
                 {
-                    indexMap[index[i]] = i;
+                    var key = index[i];
+                    if (!indexMap.TryGetValue(key, out List<int>? value))
+                    {
+                        value = new List<int>();
+                        indexMap[key] = value;
+                    }
+
+                    value.Add(i);
                 }
+                this.index = new List<object>(index);
             }
 
         }
@@ -196,9 +241,10 @@ namespace DataProcessor
             Supporter.CheckNull(other);
             this.name = other.name;
             this.values = new List<DataType>((IEnumerable<DataType>)other.Values);
-            this.indexMap = new Dictionary<object, int>(other.indexMap);
+            this.indexMap = new Dictionary<object, List<int>>(other.indexMap);
+            this.index = new List<object>(other.index);
         }
-        public Series(Tuple<string, IList<DataType>> KeyAndValues)
+        public Series(Tuple<string?, IList<DataType>> KeyAndValues)
         {
             Supporter.CheckNull(KeyAndValues);
             this.name = KeyAndValues.Item1;
@@ -211,10 +257,11 @@ namespace DataProcessor
                 this.values = new List<DataType>(KeyAndValues.Item2);
             }
 
-            indexMap = new Dictionary<object, int>();
+            indexMap = new Dictionary<object, List<int>>();
+            this.index = Enumerable.Range(0, values.Count - 1).Cast<object>().ToList();
             for (int i = 0; i < values.Count; i++)
             {
-                indexMap[i] = i;
+                indexMap[i] = new List<int> { i };
             }
         }
 
@@ -222,28 +269,23 @@ namespace DataProcessor
         public string? Name { get { return this.name; } }
         public int Count => values.Count;
         public bool IsReadOnly => false;
-        public DataType this[int index]
+        public List<DataType> this[object index]
         {
             get
             {
-                if (index < 0 || index >= values.Count)
+                if (!this.indexMap.TryGetValue(index, out List<int>? indexNum))
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
-                if (values == null)
+                List<DataType> res = new List<DataType>();
+                foreach(var idx in indexNum)
                 {
-                    throw new ArgumentException("list of values is null");
+                    res.Add(this.values[idx]);
                 }
-                return values[index];
-            }
-            set
-            {
-                Supporter.CheckNull(values);
-                if (index < 0 || index >= values.Count)
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
-                values[index] = (DataType)value;
+                return res;
             }
         }
         public Type dType => typeof(DataType);
         public IReadOnlyList<DataType> Values => values.AsReadOnly();
+        public IReadOnlyList<object> Index => this.index;
 
         // iterator
         public IEnumerator<DataType> GetEnumerator()
@@ -257,6 +299,26 @@ namespace DataProcessor
 
         //methods begin here 
         // modify the series
+        public void UpdateValues(object index, List<DataType> newValues)
+        {
+            if (!this.index.Contains(index))
+            {
+                throw new ArgumentException("Index not found", nameof(index));
+            }
+
+            var indices = this.indexMap[index]; // Lấy danh sách index ánh xạ
+
+            // Đảm bảo newValues hợp lệ: hoặc có 1 phần tử hoặc có đúng số lượng phần tử của index
+            if (newValues.Count != 1 && newValues.Count != indices.Count)
+            {
+                throw new ArgumentException("Value list must either have one element or match the indexed element count.");
+            }
+
+            for (int j = 0; j < indices.Count; j++)
+            {
+                this.values[indices[j]] = (newValues.Count == 1) ? newValues[0] : newValues[j];
+            }
+        }
         public void Add(DataType item)
         {
             values.Add(item);
@@ -277,6 +339,7 @@ namespace DataProcessor
             }
             this.values[index] = item;
         }
+
         // accessing the series
         public IList<DataType> GetItem(int indexFrom, int indexTo, int step = 1)
         {
@@ -336,15 +399,7 @@ namespace DataProcessor
             }
             return result;
         }
-        public SeriesSliceView<DataType> View(ValueTuple<int, int, int> slices)
-        {
-            if (slices.Item1 < 0 || slices.Item2 < 0)
-            {
-                throw new ArgumentException("index start or and is out of range");
-            }
-            return new SeriesSliceView<DataType>(this, (slices.Item1, slices.Item2, slices.Item3));
-        }
-        public ISeries<DataType> Head(int count)
+        public Series<DataType> Head(int count)
         {
             if (count < 0 || count > this.Count)
             {
@@ -357,7 +412,7 @@ namespace DataProcessor
             }
             return new Series<DataType>(this.name, items);
         }
-        public ISeries<DataType> Tail(int count)
+        public Series<DataType> Tail(int count)
         {
             if (count < 0 || count > this.Count)
             {
