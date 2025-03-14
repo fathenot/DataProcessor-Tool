@@ -13,8 +13,6 @@ namespace DataProcessor
         public Type dType { get; }
         public bool IsReadOnly { get; }
         public void Clear();
-        public bool Remove(object? item);
-        public void Add(object? item, object? index = null);
         public bool IsValidType(object? value);
         public int Count { get; }
         public ISeries AsType(Type NewType, bool ForceCast = false);
