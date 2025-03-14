@@ -9,29 +9,30 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    public class Series<DataType> : ICollection<DataType>, ISeries<DataType> where DataType : notnull
+    public class Series<DataType> : ISeries<DataType> where DataType : notnull
     {
         private string? name;
         private List<DataType> values;
         private Dictionary<object, List<int>> indexMap;
         private List<object> index;
+        private bool defaultIndex = false;
         // support method to check type is valid to add the data series
 
         public class View
         {
-            private Series<DataType> Series;
+            private Series<DataType> series;
             private List<object> index;
             Supporter.OrderedSet<int> convertedToIntIdx = new Supporter.OrderedSet<int>();
-
+        
             public View(Series<DataType> series, List<object> index)
             {
                 if (series == null || index == null) throw new ArgumentNullException();
 
-                Series = series;
+                this.series = series;
                 this.index = new List<object>();
 
                 // Kiểm tra nhãn có tồn tại không
-                if (index.Any(v => !this.Series.indexMap.ContainsKey(v)))
+                if (index.Any(v => !this.series.indexMap.ContainsKey(v)))
                     throw new IndexOutOfRangeException("Index out of range");
 
                 // Kiểm tra số lượng mỗi nhãn
@@ -45,8 +46,8 @@ namespace DataProcessor
 
                 foreach (var pair in indexCount)
                 {
-                    if (pair.Value > this.Series.indexMap[pair.Key].Count)
-                        throw new ArgumentException($"Label {pair.Key} requested {pair.Value} times, but only {this.Series.indexMap[pair.Key].Count} available");
+                    if (pair.Value > this.series.indexMap[pair.Key].Count)
+                        throw new ArgumentException($"Label {pair.Key} requested {pair.Value} times, but only {this.series.indexMap[pair.Key].Count} available");
                 }
 
                 // Nếu hợp lệ, gán index
@@ -59,11 +60,11 @@ namespace DataProcessor
                 if (series == null) throw new ArgumentNullException();
                 if (slice.step == 0) throw new ArgumentException("step must not be 0");
                 this.index = new List<object>();
-                this.Series = series;
-                if (!Series.indexMap.TryGetValue(slice.start, out var startList))
+                this.series = series;
+                if (!series.indexMap.TryGetValue(slice.start, out var startList))
                     throw new ArgumentException("start is not exist");
 
-                if (!Series.indexMap.TryGetValue(slice.end, out var endList))
+                if (!series.indexMap.TryGetValue(slice.end, out var endList))
                     throw new ArgumentException("end is not exist");
 
 
@@ -99,21 +100,24 @@ namespace DataProcessor
                 if (subIndex.Any(v => !this.index.Contains(v)))
                     throw new ArgumentOutOfRangeException("Sub-index contains values not in the current View");
 
-                return new View(this.Series, subIndex);
+                return new View(this.series, subIndex);
             }
             public Series<DataType> ToSeries(string? name = null)
             {
-                List<DataType> newValues = new List<DataType>();
-                List<object> newIndex = new List<object>();
+                List<DataType> newValues = new List<DataType>(this.index.Count);
+                List<object> newIndex = new List<object>(this.index.Count);
 
                 foreach (var idx in this.index)
                 {
-                    if (this.Series.indexMap.TryGetValue(idx, out List<int>? positions))
+                    if (this.series.indexMap.TryGetValue(idx, out List<int>? positions))
                     {
                         foreach (var pos in positions)
                         {
-                            newValues.Add(this.Series.Values[pos]);
-                            newIndex.Add(idx);
+                            if (this.convertedToIntIdx.Contains(pos))
+                            {
+                                newValues.Add(this.series.Values[pos]);
+                                newIndex.Add(idx);
+                            }                         
                         }
                     }
                 }
@@ -127,16 +131,16 @@ namespace DataProcessor
                     throw new KeyNotFoundException("Index not in View");
 
                 // Chỉ cập nhật những phần tử thuộc View
-                foreach (var pos in Series.indexMap[idx])
+                this.series = ToSeries(this.series.name);
+                foreach (var pos in series.indexMap[idx])
                 {
-                    if (convertedToIntIdx.Contains(pos))
-                        Series.values[pos] = newValue;
+                        series.values[pos] = newValue;
                 }
             }
 
             public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
             {
-                if (Series == null) throw new ArgumentNullException();
+                if (series == null) throw new ArgumentNullException();
                 if (slice.step == 0) throw new ArgumentException("step must not be 0");
                 if (!this.index.Contains(slice.start)) { throw new ArgumentException("start is not exist"); }
                 if (!this.index.Contains(slice.end)) { throw new ArgumentException("end is not exist"); }
@@ -182,6 +186,29 @@ namespace DataProcessor
                 this.convertedToIntIdx = NewConvertedToIntIdx;
                 GC.Collect();
                 return this;
+            }
+
+            public IEnumerator<DataType> GetValueEnumerator()
+            {
+                foreach (var idx in this.index)
+                {
+                    if (this.series.indexMap.TryGetValue(idx, out var positions))
+                    {
+                        foreach (var pos in positions)
+                        {
+                            if (this.convertedToIntIdx.Contains(pos))
+                                yield return this.series.Values[pos];
+                        }
+                    }
+                }
+            }
+
+            public IEnumerator<object> GetIndexEnumerator()
+            {
+                foreach (var idx in this.index)
+                {
+                    yield return idx;
+                }
             }
         }
 
@@ -319,9 +346,9 @@ namespace DataProcessor
                 this.values[indices[j]] = (newValues.Count == 1) ? newValues[0] : newValues[j];
             }
         }
-        public void Add(DataType item)
+        public void Add(DataType item, object? index = null)
         {
-            values.Add(item);
+            
         }
         public bool Remove(DataType item)
         {
