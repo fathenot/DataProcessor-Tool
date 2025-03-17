@@ -10,8 +10,8 @@ namespace DataProcessor
         private Dictionary<object, List<int>> indexMap;
         private List<object> index;
         private bool defaultIndex = false;
-        // support method to check type is valid to add the data series
 
+        // inner class
         public class View
         {
             private Series<DataType> series;
@@ -85,16 +85,16 @@ namespace DataProcessor
                             if (this.convertedToIntIdx.Add(i)) index.Add(series.index[i]);
                         }
                     }
-
                 }
             }
 
-            public View GetView(List<object> subIndex)
+            public View GetView(List<object> subIndex) // change the view
             {
                 if (subIndex.Any(v => !this.index.Contains(v)))
                     throw new ArgumentOutOfRangeException("Sub-index contains values not in the current View");
 
-                return new View(this.series, subIndex);
+                this.index = new List<object> { subIndex };
+                return this;
             }
             public Series<DataType> ToSeries(string? name = null)
             {
@@ -204,15 +204,24 @@ namespace DataProcessor
                     yield return idx;
                 }
             }
+
+            public override string ToString()
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("Index | Value");
+                sb.AppendLine("--------------");
+                foreach (var idx in this.index)
+                {
+                    foreach (var val in this.series[idx])
+                    {
+                        sb.AppendLine($"{idx,-6} | {val?.ToString() ?? "null"}");
+                    }
+                }
+                return sb.ToString();
+            }
         }
 
-        public bool IsValidType(object? value)
-        {
-            return value == null || value == DBNull.Value ? true : this.dType.IsAssignableFrom(value.GetType());
-        }
-
-        //constructor
-        
+        //constructor     
         public Series(string? name, List<DataType> values, IList<object>? index = null)
         {
             this.name = name;
@@ -265,7 +274,7 @@ namespace DataProcessor
             this.indexMap = new Dictionary<object, List<int>>(other.indexMap);
             this.index = new List<object>(other.index);
         }
-        public Series(Tuple<string?, IList<DataType>> KeyAndValues)
+        public Series(Tuple<string?, List<DataType>> KeyAndValues)
         {
             Supporter.CheckNull(KeyAndValues);
             this.name = KeyAndValues.Item1;
