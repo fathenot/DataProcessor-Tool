@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 
 namespace DataProcessor
@@ -30,6 +31,10 @@ namespace DataProcessor
                 foreach (var index in indices)
                 {
                     this.index.Add(index);
+                    foreach (var postion in series.indexMap[index])
+                    {
+                        this.convertedToIntIdx.Add(postion);
+                    }
                 }
             }
             public View(Series series, (object start, object end, int step) slice)
@@ -72,7 +77,7 @@ namespace DataProcessor
                 }
 
             }
-            public Series Clone()
+            public Series ToSeries()
             {
                 List<object?> data = new List<object?>();
                 foreach (var i in this.convertedToIntIdx)
@@ -133,7 +138,34 @@ namespace DataProcessor
                 GC.Collect();
                 return this;
             }
-
+            public View GetView(List<object> subIndex) // this change the view of the current view
+            {
+                if (subIndex.Any(v => !this.index.Contains(v)))
+                    throw new ArgumentOutOfRangeException("Sub-index contains values not in the current View");
+                this.index = new List<object> { subIndex };
+                return this;
+            }
+            public IEnumerator<object?> GetValueEnumerator()
+            {
+                foreach (var idx in this.index)
+                {
+                    if (this.series.indexMap.TryGetValue(idx, out var positions))
+                    {
+                        foreach (var pos in positions)
+                        {
+                            if (this.convertedToIntIdx.Contains(pos))
+                                yield return this.series.Values[pos];
+                        }
+                    }
+                }
+            }
+            public IEnumerator<object> GetIndexEnumerator()
+            {
+                foreach (var idx in this.index)
+                {
+                    yield return idx;
+                }
+            }
             public override string ToString()
             {
                 var sb = new StringBuilder();
@@ -200,7 +232,6 @@ namespace DataProcessor
 
             public Series this[object key] => groups[key]; // Truy xuất nhóm theo key
         }
-
 
         // private method here
         private bool DeleteIndex(object indexKey)
