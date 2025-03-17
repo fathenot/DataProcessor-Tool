@@ -1,11 +1,5 @@
-﻿using DataProcessor;
-using NUnit.Framework.Constraints;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace DataProcessor
 {
@@ -348,23 +342,96 @@ namespace DataProcessor
         }
         public void Add(DataType item, object? index = null)
         {
-            
+            if(index == null)
+            {
+                if (!this.defaultIndex)
+                {
+                    throw new ArgumentException("Cannot add null index when index is not default");
+                }
+                this.index.Add(this.Count);
+                this.indexMap[this.Count] = new List<int> { this.Count };
+                return;
+            }
+            if (index != null)
+            {
+                this.index.Add(index);
+                if (!indexMap.TryGetValue(index, out var list))
+                {
+                    list = new List<int>();
+                    indexMap[index] = list;
+                }
+                list.Add(values.Count);
+                this.defaultIndex = false;
+            }
+            this.values.Add(item);
         }
-        public bool Remove(DataType item)
+        public bool Remove(DataType item, bool deleteIndexIfEmpty = true)
         {
-            return values.Remove(item);
+            bool removed = false;
+            var keysToDelete = new List<object>(); // Lưu index cần xóa
+            foreach (var key in indexMap.Keys.ToList()) // ToList() để tránh Collection Modified
+            {
+                if (indexMap.TryGetValue(key, out var positions))
+                {
+                    var toRemove = positions.Where(i => Equals(values[i], item)).ToList();
+                    if (toRemove.Count > 0)
+                    {
+                        removed = true;
+                        positions.RemoveAll(i => toRemove.Contains(i));
+
+                        if (positions.Count == 0 && deleteIndexIfEmpty)
+                        {
+                            keysToDelete.Add(key);
+                        }
+                    }
+                }
+            }
+
+            if(!removed) return false;
+
+            // Cleanup values và cập nhật lại indexMap
+            var newValues = new List<DataType>();
+            var newIndexMap = new Dictionary<object, List<int>>();
+
+            int[] indexMapping = new int[values.Count]; // Ánh xạ index cũ -> index mới
+            int newIdx = 0;
+
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (!indexMap.Values.Any(lst => lst.Contains(i))) continue; // Bỏ qua giá trị không còn được tham chiếu
+
+                newValues.Add(values[i]);
+                indexMapping[i] = newIdx++;
+
+                foreach (var key in indexMap.Keys)
+                {
+                    if (indexMap[key].Contains(i))
+                    {
+                        if (!newIndexMap.ContainsKey(key))
+                        {
+                            newIndexMap[key] = new List<int>();
+                        }
+                        newIndexMap[key].Add(indexMapping[i]);
+                    }
+                }
+            }
+
+            values = newValues;
+            indexMap = newIndexMap;
+
+            // Xóa index sau khi xử lý xong để tránh Collection Modified
+            foreach (var key in keysToDelete)
+            {
+                indexMap.Remove(key);
+            }
+
+            return true;
         }
         public void Clear()
         {
             values.Clear();
-        }
-        public void ChangeItem(int index, DataType item)
-        {
-            if (index < 0 || index >= values.Count)
-            {
-                throw new ArgumentOutOfRangeException("index is out of range");
-            }
-            this.values[index] = item;
+            this.index.Clear();
+            this.indexMap.Clear();
         }
 
         // accessing the series
@@ -462,7 +529,7 @@ namespace DataProcessor
         {
             return values.Contains(item);
         }
-        public IList<int> Find(DataType? item)
+        public IList<int> Find(DataType item)
         {
             IList<int> Indexes = new List<int>();
             for (int i = 0; i < values.Count; i++)
@@ -471,10 +538,6 @@ namespace DataProcessor
                     Indexes.Add(i);
             }
             return Indexes;
-        }
-        public IList<int> Find(object? item)
-        {
-            return this.Find((DataType?)item);
         }
 
         // utility method
@@ -547,15 +610,19 @@ namespace DataProcessor
                                .ToList();
             }
         }
+
         // print the series
-        public static void print(Series<DataType> series)
+        public override string ToString()
         {
-            Console.WriteLine(series.Name);
-            int rowIndex = 1;
-            foreach (var item in series.Values)
+            var sb = new StringBuilder();
+            sb.AppendLine($"Series: {Name ?? "Unnamed"}"); // In tên Series
+            sb.AppendLine("Index | Value");
+            sb.AppendLine("--------------");
+            for (int i = 0; i < values.Count; i++)
             {
-                Console.WriteLine($"{rowIndex} {item}");
+                sb.AppendLine($"{index[i].ToString(),5} | {values[i]?.ToString() ?? "null"}");
             }
+            return sb.ToString();
         }
 
         // copy
