@@ -72,7 +72,7 @@ namespace DataProcessor
                 }
 
             }
-            public ISeries Clone()
+            public Series Clone()
             {
                 List<object?> data = new List<object?>();
                 foreach (var i in this.convertedToIntIdx)
@@ -80,8 +80,8 @@ namespace DataProcessor
                     data.Add(series.values[i]);
                 }
                 var res = new Series(this.series.name, data, series.index);
-
-                return res.AsType(series.dType);// bảo toàn kiểu dữ liệu gốc tránh bị suy luận kiểu làm đổi kiểu dữ liệu
+                res.dtype = this.series.dtype;// bảo toàn kiểu dữ liệu gốc tránh bị suy luận kiểu làm đổi kiểu dữ liệu
+                return res;
             }
 
             public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
