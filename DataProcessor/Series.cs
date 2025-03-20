@@ -368,7 +368,14 @@ namespace DataProcessor
         {
             if (!IsValidType(item))
             {
-                throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}. You must change the đata type to object first");
+                try // trying cast item to proper data type to add
+                {
+                    var convertedItem = Convert.ChangeType(item, dType);
+                }
+                catch (Exception ex)
+                {
+                    throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}. You must change the đata type to {this.dtype} first");
+                }
             }
             if (index == null)
             {
