@@ -11,13 +11,16 @@ namespace DataProcessor
         private List<object> index;
         private bool defaultIndex = false;
 
+        //handle multi thread
+        private ReaderWriterLock rwl = new ReaderWriterLock();
+
         // inner class
         public class View
         {
             private Series<DataType> series;
             private List<object> index;
-            Supporter.OrderedSet<int> convertedToIntIdx = new Supporter.OrderedSet<int>();
-        
+            private List<int> convertedToIntIdx = new List<int>();// bug 
+
             public View(Series<DataType> series, List<object> index)
             {
                 if (series == null || index == null) throw new ArgumentNullException();
@@ -27,40 +30,31 @@ namespace DataProcessor
 
                 // Kiểm tra nhãn có tồn tại không
                 if (index.Any(v => !this.series.indexMap.ContainsKey(v)))
-                    throw new IndexOutOfRangeException("Index out of range");
+                    throw new IndexOutOfRangeException("Index is not exist");
 
-                // Kiểm tra số lượng mỗi nhãn
-                Dictionary<object, int> indexCount = new Dictionary<object, int>();
-                foreach (var i in index)
-                {
-                    if (!indexCount.ContainsKey(i))
-                        indexCount[i] = 0;
-                    indexCount[i]++;
-                }
-
-                foreach (var pair in indexCount)
-                {
-                    if (pair.Value > this.series.indexMap[pair.Key].Count)
-                        throw new ArgumentException($"Label {pair.Key} requested {pair.Value} times, but only {this.series.indexMap[pair.Key].Count} available");
-                }
-
-                // Nếu hợp lệ, gán index
                 this.index = new List<object>(index);
+                convertedToIntIdx = new List<int>();
+                foreach (var idx in index)
+                {
+                    this.convertedToIntIdx.AddRange(this.series.indexMap[idx]);
+                }
             }
 
 
             public View(Series<DataType> series, (object start, object end, int step) slice)
             {
+                Supporter.OrderedSet<int> removedDuplicateIdx = new Supporter.OrderedSet<int>();
+                // check valid argument
                 if (series == null) throw new ArgumentNullException();
                 if (slice.step == 0) throw new ArgumentException("step must not be 0");
-                this.index = new List<object>();
-                this.series = series;
                 if (!series.indexMap.TryGetValue(slice.start, out var startList))
                     throw new ArgumentException("start is not exist");
-
                 if (!series.indexMap.TryGetValue(slice.end, out var endList))
                     throw new ArgumentException("end is not exist");
 
+                // main logic of the method
+                this.index = new List<object>();
+                this.series = series;
 
                 List<ValueTuple<int, int>> position = new List<(int, int)>();
                 for (int i = 0; i < Math.Min(startList.Count, endList.Count); i++)
@@ -75,14 +69,22 @@ namespace DataProcessor
                     {
                         for (int i = pair.Item1; i <= pair.Item2; i += slice.step)
                         {
-                            if (this.convertedToIntIdx.Add(i)) index.Add(series.index[i]);
+                            if (removedDuplicateIdx.Add(i)) 
+                            {
+                                index.Add(series.index[i]); 
+                                this.convertedToIntIdx.Add(i);
+                            }
                         }
                     }
                     if (slice.step < 0)
                     {
                         for (int i = pair.Item1; i >= pair.Item2; i += slice.step)
                         {
-                            if (this.convertedToIntIdx.Add(i)) index.Add(series.index[i]);
+                            if (removedDuplicateIdx.Add(i))
+                            {
+                                index.Add(series.index[i]);
+                                this.convertedToIntIdx.Add(i);
+                            }
                         }
                     }
                 }
@@ -111,7 +113,7 @@ namespace DataProcessor
                             {
                                 newValues.Add(this.series.Values[pos]);
                                 newIndex.Add(idx);
-                            }                         
+                            }
                         }
                     }
                 }
@@ -128,7 +130,7 @@ namespace DataProcessor
                 this.series = ToSeries(this.series.name);
                 foreach (var pos in series.indexMap[idx])
                 {
-                        series.values[pos] = newValue;
+                    series.values[pos] = newValue;
                 }
             }
 
@@ -177,7 +179,7 @@ namespace DataProcessor
                 }
 
                 this.index = newIndex;
-                this.convertedToIntIdx = NewConvertedToIntIdx;
+                this.convertedToIntIdx = NewConvertedToIntIdx.ToList();
                 GC.Collect();
                 return this;
             }
@@ -220,12 +222,72 @@ namespace DataProcessor
                 return sb.ToString();
             }
         }
+        public class GroupView
+        {
+            private readonly Dictionary<object, int[]> groups; // this only store the index of the series values
+            Series<DataType> source;
 
+            public GroupView(Series<DataType> source, Dictionary<object, int[]> groupIndices)
+            {
+                this.source = source;
+                this.groups = groupIndices;
+            }
+
+            // Lấy danh sách index của một nhóm
+            public ReadOnlyMemory<int> GetGroupIndices(object key)
+            {
+                return groups.TryGetValue(key, out var indices) ? indices.AsMemory() : ReadOnlyMemory<int>.Empty;
+            }
+
+            public Series<DataType> GetGroup(object key, string? newName = "")
+            {
+                if (!groups.TryGetValue(key, out var indices))
+                    throw new KeyNotFoundException($"Nhóm {key} không tồn tại.");
+                var values = new List<DataType>(indices.Length);
+                var indexes = new List<object>(indices.Length);
+                foreach (var idx in indices)
+                {
+                    values.Add(this.source.values[idx]);
+                    indexes.Add(this.source.index[idx]);
+                }
+                return new Series<DataType>(newName, values, indexes);
+            }
+            public Dictionary<object, DataType> Sum()
+            {
+                var result = new Dictionary<object, DataType>();
+
+                foreach (var kvp in groups)
+                {
+                    object key = kvp.Key;
+                    int[] indices = kvp.Value;
+
+                    dynamic? sum = default(DataType);
+                    foreach (var idx in indices)
+                    {
+                        sum += (dynamic)this.source.values[idx];
+                    }
+
+                    result[key] = sum;
+                }
+
+                return result;
+            }
+            public Dictionary<object, uint> Count()
+            {
+                var result = new Dictionary<object, uint>();
+                foreach (var kvp in groups)
+                {
+                    result[kvp.Key] = (uint)kvp.Value.Length;
+                }
+                return result;
+            }
+
+        }
         //constructor     
         public Series(string? name, List<DataType> values, IList<object>? index = null)
         {
             this.name = name;
-            if(values == null)
+            if (values == null)
             {
                 this.values = new List<DataType>();
             }
@@ -234,8 +296,8 @@ namespace DataProcessor
                 this.values = new List<DataType>(values);
             }
 
-                // handle index
-            indexMap = new Dictionary<object, List<int>>();         
+            // handle index
+            indexMap = new Dictionary<object, List<int>>();
             if (index == null)
             {
                 this.index = new List<object>();
@@ -306,7 +368,7 @@ namespace DataProcessor
                 if (!this.indexMap.TryGetValue(index, out List<int>? indexNum))
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
                 List<DataType> res = new List<DataType>();
-                foreach(var idx in indexNum)
+                foreach (var idx in indexNum)
                 {
                     res.Add(this.values[idx]);
                 }
@@ -351,7 +413,7 @@ namespace DataProcessor
         }
         public void Add(DataType item, object? index = null)
         {
-            if(index == null)
+            if (index == null)
             {
                 if (!this.defaultIndex)
                 {
@@ -396,7 +458,7 @@ namespace DataProcessor
                 }
             }
 
-            if(!removed) return false;
+            if (!removed) return false;
 
             // Cleanup values và cập nhật lại indexMap
             var newValues = new List<DataType>();
@@ -549,7 +611,7 @@ namespace DataProcessor
             return Indexes;
         }
 
-        // utility method
+        // utility methods
         public ISeries AsType(Type NewType, bool ForceCast = false)
         {
             Supporter.CheckNull(NewType);
@@ -618,6 +680,14 @@ namespace DataProcessor
                                .ThenBy(x => x, comparer)  // Sắp xếp với comparer nếu có
                                .ToList();
             }
+        }
+        public View GetView(List<object> indicies)
+        {
+            return new View(this, indicies);
+        }
+        public View GetView((object start, object end, int step)slice)
+        {
+            return new View(this, slice);
         }
 
         // print the series
