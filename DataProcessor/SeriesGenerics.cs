@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Text;
 
 namespace DataProcessor
@@ -689,7 +690,28 @@ namespace DataProcessor
         {
             return new View(this, slice);
         }
-
+        public GroupView GroupsByIndex()
+        {
+            Dictionary<object, int[]> keyValuePairs = new Dictionary<object, int[]>();
+            foreach (var idx in this.indexMap.Keys)
+            {
+                keyValuePairs[idx] = this.indexMap[idx].ToArray();
+            }
+            return new GroupView(this, keyValuePairs);
+        }
+        public GroupView GroupByValue()
+        {
+            Dictionary<object, int[]> keyValuePairs = new Dictionary<object, int[]>();
+            HashSet<DataType> removedDuplicate =  new HashSet<DataType>(this.values);
+            foreach (var ele in removedDuplicate)
+            {
+                keyValuePairs[ele] = this.values.Select((value, index) => new { value, index })
+                            .Where(x => ele.Equals(x))
+                            .Select(x => x.index)
+                            .ToList().ToArray();
+            }
+            return new GroupView(this, keyValuePairs);
+        }
         // print the series
         public override string ToString()
         {
