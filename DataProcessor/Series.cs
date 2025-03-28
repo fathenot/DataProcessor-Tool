@@ -13,6 +13,10 @@ namespace DataProcessor
         private Type dtype;
         private bool defaultIndex;
 
+        // handle multi thread
+        private readonly Semaphore writeSemaphore = new Semaphore(1, 1);
+        private ReaderWriterLock rwl = new ReaderWriterLock();
+
         // inner class
         public class View
         {
@@ -370,7 +374,23 @@ namespace DataProcessor
             {
                 try // trying cast item to proper data type to add
                 {
+                    if (dType == typeof(int) && int.TryParse(item?.ToString(), out int intValue))
+                    {
+                        this.values.Add(intValue);
+                        return;
+                    }
+                    if (dType == typeof(double) && double.TryParse(item?.ToString(), out double DoubleValue))
+                    {
+                        this.values.Add(DoubleValue);
+                        return;
+                    }
+                    if (dType == typeof(DateTime) && DateTime.TryParse(item?.ToString(), out DateTime DateTimeValue))
+                    {
+                        this.values.Add(DateTimeValue);
+                        return;
+                    }
                     var convertedItem = Convert.ChangeType(item, dType);
+                    this.values.Add(convertedItem);
                 }
                 catch (Exception ex)
                 {
