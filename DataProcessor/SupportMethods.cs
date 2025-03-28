@@ -56,6 +56,10 @@ namespace DataProcessor
                     throw new IndexOutOfRangeException("Index is out of range.");
                 return list[index];
             }
+
+            public List<T> getData() => list;
+            public int Count => list.Count;
+
             public IEnumerator<T> GetEnumerator() => list.GetEnumerator();
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
