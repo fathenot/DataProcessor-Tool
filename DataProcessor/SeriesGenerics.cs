@@ -20,24 +20,25 @@ namespace DataProcessor
         {
             private Series<DataType> series;
             private List<object> index;
-            private List<int> convertedToIntIdx = new List<int>();// bug 
+            private List<int> convertedToIntIdx = new List<int>(); 
 
             public View(Series<DataType> series, List<object> index)
             {
-                if (series == null || index == null) throw new ArgumentNullException();
+                ArgumentNullException.ThrowIfNull(series);
+                ArgumentNullException.ThrowIfNull(index);
 
                 this.series = series;
                 this.index = new List<object>();
 
-                // Kiểm tra nhãn có tồn tại không
-                if (index.Any(v => !this.series.indexMap.ContainsKey(v)))
-                    throw new IndexOutOfRangeException("Index is not exist");
-
-                this.index = new List<object>(index);
-                convertedToIntIdx = new List<int>();
                 foreach (var idx in index)
                 {
-                    this.convertedToIntIdx.AddRange(this.series.indexMap[idx]);
+                    if (!series.indexMap.TryGetValue(index, out var positions))
+                    {
+                        throw new IndexOutOfRangeException($"Index {index} out of range");
+                    }
+
+                    this.index.Add(index);
+                    this.convertedToIntIdx.AddRange(positions); // Tránh lặp nhiều lần
                 }
             }
 
@@ -235,7 +236,7 @@ namespace DataProcessor
             }
 
             // Lấy danh sách index của một nhóm
-            public ReadOnlyMemory<int> GetGroupIndices(object key)
+           private ReadOnlyMemory<int> GetGroupIndices(object key)
             {
                 return groups.TryGetValue(key, out var indices) ? indices.AsMemory() : ReadOnlyMemory<int>.Empty;
             }
@@ -265,7 +266,15 @@ namespace DataProcessor
                     dynamic? sum = default(DataType);
                     foreach (var idx in indices)
                     {
-                        sum += (dynamic)this.source.values[idx];
+                        if (this.source.values[idx] != null)
+                        {
+                            sum += (dynamic)this.source.values[idx];
+                        }
+
+                        if(this.source.values[idx] is object value && value != DBNull.Value)
+                        {
+                            sum += (dynamic)value;
+                        }
                     }
 
                     result[key] = sum;
