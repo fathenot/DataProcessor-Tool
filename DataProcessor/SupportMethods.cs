@@ -137,7 +137,9 @@ namespace DataProcessor
                 return typeof(object); // Trả về object nếu chỉ chứa null/DBNull
             }
 
-            bool AllNumerics = values.All(v => v != null && v != DBNull.Value && IsNumerics(v));
+            bool AllNumerics = values
+                .Where(v => v != null && v != DBNull.Value) // Loại bỏ các giá trị null và DBNull.Value
+                .All(v => IsNumerics(v)); // Kiểm tra tính số học của phần tử còn lại
             if (AllNumerics)
             {
                 return InferNumericType(values);
