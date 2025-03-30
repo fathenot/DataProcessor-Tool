@@ -1,6 +1,4 @@
 ﻿using System.Collections;
-using System.ComponentModel.DataAnnotations;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace DataProcessor
@@ -72,7 +70,7 @@ namespace DataProcessor
                                 index.Add(series.index[i]);
                                 this.convertedToIntIdx.Add(i);
                             }
-                                                                                         
+
                         }
                     }
                     if (slice.step < 0)
@@ -194,12 +192,10 @@ namespace DataProcessor
                 var sb = new StringBuilder();
                 sb.AppendLine("Index | Value");
                 sb.AppendLine("--------------");
-                foreach (var idx in this.index)
+
+                foreach (int IntIdx in this.convertedToIntIdx)
                 {
-                    foreach (var val in this.series[idx])
-                    {
-                        sb.AppendLine($"{idx,-6} | {val?.ToString() ?? "null"}");
-                    }
+                    sb.AppendLine($"{this.series.index[IntIdx],-6} | {this.series.values[IntIdx]?.ToString() ?? "null"}");
                 }
                 return sb.ToString();
             }
@@ -227,9 +223,9 @@ namespace DataProcessor
                 {
                     int[] indexes = this.groups[key];
                     dynamic? sum = Activator.CreateInstance(type: this.source.dtype);
-                    foreach(var idx in indexes)
+                    foreach (var idx in indexes)
                     {
-                        if(this.source.values[idx] != null && this.source.values[idx] != DBNull.Value)
+                        if (this.source.values[idx] != null && this.source.values[idx] != DBNull.Value)
                             sum += this.source.values[idx];
                     }
                     result.Add(key, sum);
@@ -510,7 +506,7 @@ namespace DataProcessor
             {
                 throw new ArgumentNullException("List of values must not be null", nameof(values));
             }
-            if(values.Count == 0)
+            if (values.Count == 0)
             {
                 throw new InvalidOperationException("this action can't be done if values count is 0");
             }
@@ -534,7 +530,7 @@ namespace DataProcessor
             // main logic of the method
             if (values.Count == 1)
             {
-                foreach(var posítion in positions)
+                foreach (var posítion in positions)
                 {
                     this.values[posítion] = values[0];
                 }
@@ -576,9 +572,13 @@ namespace DataProcessor
         public View GetView((object start, object end, int step) slices)
         {
             // check valid start, end
-            if (indexMap.ContainsKey(slices.start) || !indexMap.ContainsKey(slices.end))
+            if (!indexMap.ContainsKey(slices.start))
             {
-                throw new ArgumentException("start or end is not exist");
+                throw new ArgumentException($"start index: {slices.start} not exist");
+            }
+            if (!indexMap.ContainsKey(slices.start))
+            {
+                throw new ArgumentException($"End index: {slices.end} not exist");
             }
             return new View(this, slices);
         }
@@ -664,8 +664,39 @@ namespace DataProcessor
             }
         }
         // public View GetView(List<object> indexes){}
-        // public GroupByIndex (index = object)
-        // public GroupByValue ()
+        public GroupView GroupByIndex()
+        {
+            Dictionary<object, int[]> groups = new Dictionary<object, int[]>();
+            foreach (var Index in this.indexMap.Keys)
+            {
+                groups[Index] = this.indexMap[Index].ToArray();
+            }
+            return new GroupView(this, groups);
+        }
+        public GroupView GroupByValue()
+        {
+            Dictionary<object, int[]> groups = new Dictionary<object, int[]>();
+            var RemovedDuplicate = new HashSet<object?>(this.values);
+            foreach (var Element in RemovedDuplicate)
+            {
+                int[] indicies = this.values.Select((value, index) => new { value, index })
+                                        .Where(x => Object.Equals(x, Element))
+                                        .Select(x => x.index)
+                                        .ToArray();
+                if (Element == null)
+                {
+                    object temp = DBNull.Value;
+                    groups[temp] = indicies;
+                }
+                else
+                {
+                    groups[Element] = indicies;
+                }
+
+            }
+            return new GroupView (this, groups);    
+
+        }
 
         // searching and filter
         public IList<object?> Filter(Func<object?, bool> filter)
