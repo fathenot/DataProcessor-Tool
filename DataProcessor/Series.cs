@@ -12,7 +12,7 @@ namespace DataProcessor
         private Type dtype;
         private bool defaultIndex;
 
-        // handle multi thread
+        // handle multi thread this will be implement in the future
         private readonly Semaphore writeSemaphore = new Semaphore(1, 1);
         private ReaderWriterLock rwl = new ReaderWriterLock();
 
@@ -361,7 +361,7 @@ namespace DataProcessor
             }
         }
         public IReadOnlyList<object> Index => this.index;
-
+       
         // iterator
         public IEnumerator<object?> GetEnumerator()
         {
@@ -539,6 +539,22 @@ namespace DataProcessor
             for (int i = 0; i < positions.Count; i++)
             {
                 this.values[i] = values[i];
+            }
+        }
+        public void UpdateValues(Series other)
+        {
+            this.indexMap.Clear();
+            this.values.Clear();
+            this.index.Clear();
+            for (int i = 0; i < other.values.Count; i++)
+            {
+                values[i] = other.values[i];
+            }
+            this.index = new List<object>(other.index);
+            this.indexMap = new Dictionary<object, List<int>>();
+            foreach (var key in other.indexMap.Keys)
+            {
+                this.indexMap[key] = new List<int>(other.indexMap[key]);
             }
         }
 
