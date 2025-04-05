@@ -176,5 +176,17 @@ namespace DataProcessor
             }
             return typeof(object);
         }
+
+        internal static void ScaleLength(List<List<object?>> rows)
+        {
+            int maxRowLength = rows.Max(row => row.Count);
+
+            foreach (var row in rows)
+            {
+                row.AddRange(Enumerable.Repeat<object?>(null, maxRowLength - row.Count));
+            }
+        }
+        
+
     }
 }
