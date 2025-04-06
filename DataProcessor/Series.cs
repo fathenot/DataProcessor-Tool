@@ -10,8 +10,6 @@ namespace DataProcessor
         private Dictionary<object, List<int>> indexMap;
         private List<object> index;
         private Type dtype;
-        private bool defaultIndex;
-
         // handle multi thread this will be implement in the future
         private readonly Semaphore writeSemaphore = new Semaphore(1, 1);
         private ReaderWriterLock rwl = new ReaderWriterLock();
@@ -21,8 +19,8 @@ namespace DataProcessor
         {
             private List<object> index;
             private Series series;
-            List<int> convertedToIntIdx = new List<int>();
-
+            private List<int> convertedToIntIdx = new List<int>();
+            internal bool needToSyncWithSeries = false;
             public View(Series series, List<object> indices)
             {
                 ArgumentNullException.ThrowIfNull(series);
@@ -88,20 +86,85 @@ namespace DataProcessor
                 }
 
             }
-            public Series ToSeries()
+            public Series ToSeries(string? name = null)// Tạo một Series mới từ các giá trị trong view, giữ nguyên index và dtype gốc
+
             {
                 List<object?> data = new List<object?>();
                 foreach (var i in this.convertedToIntIdx)
                 {
                     data.Add(series.values[i]);
                 }
-                var res = new Series(this.series.name, data, series.index);
+                var res = new Series(data, name, this.index);
                 res.dtype = this.series.dtype;// bảo toàn kiểu dữ liệu gốc tránh bị suy luận kiểu làm đổi kiểu dữ liệu
                 return res;
             }
-
+            public void UpdateValue(object index, object newValue)
+            {
+                if (!this.index.Contains(index))
+                {
+                    throw new IndexOutOfRangeException($"Index {index} not in view");
+                }
+                // check valid type of new Value
+                if (this.series.IsValidType(newValue))
+                {
+                    this.series = this.ToSeries();
+                    foreach (var pos in series.indexMap[index])
+                    {
+                        series.values[pos] = newValue;
+                    }
+                    return;
+                }
+                try // trying cast item to proper data type to add
+                {
+                    if (this.series.dType == typeof(int) && int.TryParse(newValue?.ToString(), out int intValue))
+                    {
+                        this.series = this.ToSeries();
+                        foreach (var pos in series.indexMap[index])
+                        {
+                            series.values[pos] = intValue;
+                        }
+                        return;
+                    }
+                    if (this.series.dType == typeof(double) && double.TryParse(newValue?.ToString(), out double DoubleValue))
+                    {
+                        foreach (var pos in series.indexMap[index])
+                        {
+                            series.values[pos] = DoubleValue;
+                        }
+                        return;
+                    }
+                    if (this.series.dType == typeof(DateTime) && DateTime.TryParse(newValue?.ToString(), out DateTime DateTimeValue))
+                    {
+                        foreach (var pos in series.indexMap[index])
+                        {
+                            series.values[pos] = DateTimeValue;
+                        }
+                        return;
+                    }
+                    var convertedItem = Convert.ChangeType(newValue, this.series.dType);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+        $"Cannot convert value '{newValue}' (type: {newValue?.GetType().Name ?? "null"}) to expected type '{this.series.dType.Name}' for index '{index}'.",
+        ex);
+                }
+            }
             public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
             {
+                // synchroization with the origin series
+                for (int i = 0; i < this.convertedToIntIdx.Count; i++)
+                {
+                    foreach (var key in this.series.indexMap.Keys)
+                    {
+                        if (!this.series.indexMap[key].Contains(this.convertedToIntIdx[i]))
+                        {
+                            this.index[i] = key;
+                        }
+                    }
+                }
+
+                // check valid argument
                 if (series == null) throw new ArgumentNullException();
                 if (slice.step == 0) throw new ArgumentException("step must not be 0");
                 if (!this.index.Contains(slice.start)) { throw new ArgumentException("start is not exist"); }
@@ -151,15 +214,26 @@ namespace DataProcessor
             }
             public View GetView(List<object> subIndex) // this change the view of the current view
             {
+                // synchroization with the origin series
+                if (this.index != this.series.index)
+                {
+                    this.index = new List<object> { this.series.index };
+                }
+
+                // main logic method
                 if (subIndex.Any(v => !this.index.Contains(v)))
                     throw new ArgumentOutOfRangeException("Sub-index contains values not in the current View");
                 this.index = new List<object> { subIndex };
                 List<int> ChangedIntIdx = new List<int>();
-                foreach (object item in this.index)
+                foreach (var item in subIndex)
                 {
-                    if (series.Contains(item))
+                    var positions = this.series.indexMap[item];
+                    foreach (var position in positions)
                     {
-                        ChangedIntIdx.AddRange(this.series.indexMap[item]);
+                        if (this.convertedToIntIdx.Contains(position))
+                        {
+                            ChangedIntIdx.Add(position);
+                        }
                     }
                 }
                 this.convertedToIntIdx.Clear();
@@ -259,7 +333,7 @@ namespace DataProcessor
         // private method end here
 
         // support method to check type is valid to add the data series
-        public bool IsValidType(object? value)
+        private bool IsValidType(object? value)
         {
             return value == null
                  || value == DBNull.Value
@@ -268,43 +342,43 @@ namespace DataProcessor
         }
 
         //constructor
-        public Series(string? name, List<object?> values, List<object>? index = null)
+        public Series(List<object?> values, string? name = null, List<object>? index = null)
         {
             this.name = name;
-            this.values = new List<object?>(values ?? new List<object?>());
+            this.values = new List<object?>(values);
+            this.indexMap = new Dictionary<object, List<int>>();
 
-            // infer datatype
-            this.dtype = Supporter.InferDataType(this.values);
-            // handle index
-            indexMap = new Dictionary<object, List<int>>();
-
-            if (index == null)
+            // Handle index and map
+            if (index != null)
             {
-                this.defaultIndex = true;
-                this.index = Enumerable.Range(0, values!.Count).Cast<object>().ToList();
+                this.index = new List<object>(index);
+                for (int i = 0; i < index.Count; i++)
+                {
+                    // Add index to map (if not exists, create new entry)
+                    if (!indexMap.TryGetValue(index[i], out var list))
+                    {
+                        list = new List<int>();
+                        indexMap[index[i]] = list;
+                    }
+                    list.Add(i);
+                }
+
+                // Ensure values list is extended to match the index size
+                while (values.Count < index.Count)
+                {
+                    values.Add(null);
+                }
+            }
+            else
+            {
+                this.index = new List<object>(Enumerable.Range(0, values.Count).Cast<object>());
                 for (int i = 0; i < values.Count; i++)
                 {
                     indexMap[i] = new List<int> { i };
                 }
             }
-            else
-            {
-                this.defaultIndex = false;
-                this.index = new List<object>(index);
-                if (index.Count != values!.Count)
-                {
-                    throw new ArgumentException("index size must be same as the value size");
-                }
-                for (int i = 0; i < index.Count; i++)
-                {
-                    var key = index[i];
-                    if (!indexMap.ContainsKey(key))
-                    {
-                        indexMap[key] = new List<int>();
-                    }
-                    indexMap[key].Add(i);
-                }
-            }
+
+            this.dtype = Supporter.InferDataType(this.values);
         }
         public Series(Series other)
         {
@@ -333,7 +407,14 @@ namespace DataProcessor
                 indexMap[i] = new List<int> { i };
             }
         }
-
+        public Series()
+        {
+            this.name = "";
+            this.values = new List<object?>();
+            this.index = new List<object>();
+            this.indexMap = new Dictionary<object, List<int>>();
+            this.dtype = typeof(object);
+        }
         // Properties
         public string? Name { get { return this.name; } }
         public IReadOnlyList<object?> Values => values == null ? throw new Exception("values list is null") : values as IReadOnlyList<object?> ?? values.ToList();
@@ -361,7 +442,7 @@ namespace DataProcessor
             }
         }
         public IReadOnlyList<object> Index => this.index;
-       
+
         // iterator
         public IEnumerator<object?> GetEnumerator()
         {
@@ -400,15 +481,11 @@ namespace DataProcessor
                 }
                 catch (Exception ex)
                 {
-                    throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}. You must change the đata type to {this.dtype} first");
+                    throw new ArgumentException($"Expected type {dType}, but got {item?.GetType()}. You must change the đata type to {this.dtype} first", ex);
                 }
             }
             if (index == null)
             {
-                if (!defaultIndex)
-                {
-                    throw new ArgumentException("Cannot add null index when index is not default");
-                }
                 this.index.Add(this.Count);
                 this.indexMap[this.Count] = new List<int> { this.Count };
                 return;
@@ -422,11 +499,10 @@ namespace DataProcessor
                     indexMap[index] = list;
                 }
                 list.Add(values.Count);
-                this.defaultIndex = false;
             }
             this.values.Add(item);
         }
-        public bool Remove(object? item, bool deleteIndexIfEmpty = true)
+        public bool Remove(object? item, bool deleteIndexIfEmpty = true) // remove all occurent of item
         {
             bool removed = false;
             var keysToDelete = new List<object>(); // Lưu index cần xóa
@@ -463,10 +539,13 @@ namespace DataProcessor
                 if (!indexMap.Values.Any(lst => lst.Contains(i))) continue; // Bỏ qua giá trị không còn được tham chiếu
 
                 newValues.Add(values[i]);
-                indexMapping[i] = newIdx++;
+                indexMapping[i] = newIdx++; // ánh xạ từ vị trí ban đầu của giá trị sang vị trí mới
 
+                // index ban dầu của index của value phải ánh xạ tới vị trí mỡi của giá trị này 
                 foreach (var key in indexMap.Keys)
                 {
+                    // nêu IndexMap[key] chứa vị trí ban đầu của value không bị xoá thì 
+                    // newIndex[key] ánh xạ tới vị trí mới của value
                     if (indexMap[key].Contains(i))
                     {
                         if (!newIndexMap.ContainsKey(key))
@@ -570,7 +649,7 @@ namespace DataProcessor
             {
                 items.Add(this.values[i]);
             }
-            return new Series(this.name, items);
+            return new Series(items, this.name);
         }
         public ISeries Tail(int count)
         {
@@ -583,7 +662,7 @@ namespace DataProcessor
             {
                 items.Add(this.values[i]);
             }
-            return new Series(name, items);
+            return new Series(items, name: name);
         }
         public View GetView((object start, object end, int step) slices)
         {
@@ -652,7 +731,7 @@ namespace DataProcessor
                 }
             }
 
-            var result = new Series(this.Name, newValues, this.index);
+            var result = new Series(newValues, this.Name, this.index);
             result.dtype = NewType;
             return result;
         }
@@ -710,7 +789,7 @@ namespace DataProcessor
                 }
 
             }
-            return new GroupView (this, groups);    
+            return new GroupView(this, groups);
 
         }
 
@@ -751,7 +830,7 @@ namespace DataProcessor
         // clone
         public ISeries Clone()
         {
-            return new Series(this.name, this.values);
+            return new Series(this);
         }
         public void CopyTo(object?[] array, int arrayIndex)
         {
@@ -795,10 +874,9 @@ namespace DataProcessor
             return new Series<DataType>(this.name, newValues, this.index);
         }
 
-        public void resetIndex()
+        public void ResetIndex()
         {
             this.index = Enumerable.Range(0, values.Count - 1).Cast<object>().ToList();
-            this.defaultIndex = true;
             this.indexMap.Clear();
             foreach (var idx in index)
             {
