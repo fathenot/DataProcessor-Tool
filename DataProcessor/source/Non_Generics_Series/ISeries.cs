@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataProcessor
+namespace DataProcessor.source.Non_Generics_Series
 {
-    public interface ISeries: IEnumerable<object?>
+    public interface ISeries : IEnumerable<object?>
     {
         public string? Name { get; }
         public IReadOnlyList<object?> Values { get; }

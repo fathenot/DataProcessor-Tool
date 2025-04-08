@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DataProcessor.test
 {
-    internal class Test
+    internal class NonGenericsSeries
     {
 
     }

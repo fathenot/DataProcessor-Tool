@@ -1,13 +1,12 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataProcessor
+namespace DataProcessor.source.Generics_Series
 {
-    public interface ISeries<DataType>: IEnumerable<DataType> where DataType : notnull
+    public interface ISeries<DataType> : IEnumerable<DataType> where DataType : notnull
     {
         string? Name { get; }
         IReadOnlyList<DataType> Values { get; }

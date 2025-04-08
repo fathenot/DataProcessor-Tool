@@ -11,7 +11,8 @@ using System.Threading.Tasks;
 
 namespace DataProcessor
 {
-    // this is class contains methods only used by this library developers and the name of class may be changed in the future
+    // this is class contains methods and class can only used by this library developers 
+    // the name of class may be changed in the future
     static internal class Supporter
     {
         public class OrderedSet<T> : IEnumerable<T>
