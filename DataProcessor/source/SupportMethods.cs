@@ -9,7 +9,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataProcessor
+namespace DataProcessor.source
 {
     // this is class contains methods and class can only used by this library developers 
     // the name of class may be changed in the future
@@ -48,7 +48,7 @@ namespace DataProcessor
 
             public bool Contains(T value)
             {
-                return this.set.Contains(value);
+                return set.Contains(value);
             }
 
             public T GetItem(int index)
@@ -146,8 +146,8 @@ namespace DataProcessor
                 return InferNumericType(values);
             }
             // check values contains value type or reference type
-            bool ContainsValueType = values.Any(v => (v!= null && v!= DBNull.Value) && v.GetType().IsValueType);
-            bool ContainsReferenceType = values.Any(v => (v != null && v != DBNull.Value) && !v.GetType().IsValueType);
+            bool ContainsValueType = values.Any(v => v!= null && v!= DBNull.Value && v.GetType().IsValueType);
+            bool ContainsReferenceType = values.Any(v => v != null && v != DBNull.Value && !v.GetType().IsValueType);
             
             if(ContainsReferenceType && ContainsValueType)
             {
