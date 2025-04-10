@@ -9,65 +9,6 @@ namespace DataProcessor.source.Generics_Series
     public partial class Series<DataType>
     {
         // accessing the series
-        public IList<DataType> GetItem(int indexFrom, int indexTo, int step = 1)
-        {
-            IList<DataType> result = new List<DataType>();
-
-            // check valid argument
-            if (indexFrom < 0 || indexTo < 0 || indexFrom >= values.Count || indexTo >= values.Count)
-            {
-                throw new ArgumentOutOfRangeException("Index is out of range");
-            }
-
-            if (step < 0)
-            {
-                if (indexFrom < indexTo)
-                {
-                    throw new ArgumentException("Index from must be greater than index to when step < 0");
-                }
-            }
-
-            if (step > 0 && indexFrom > indexTo)
-            {
-                throw new ArgumentException("Index from must be smaller than index to when step > 0");
-            }
-
-            if (step > values.Count)
-            {
-                throw new ArgumentOutOfRangeException("Step greater than size of series");
-            }
-
-            if (step == 0)
-            {
-                throw new ArgumentException("Step must not be zero");
-            }
-
-            //main logic of the method
-            if (indexTo == indexFrom)
-            {
-                return result;  // Trả về danh sách rỗng theo phong cách Python
-            }
-            if (indexTo == indexFrom)
-            {
-                return result;  // Trả về danh sách rỗng theo phong cách Python
-            }
-            if (step > 0)
-            {
-                for (int i = indexFrom; i <= indexTo; i += step)
-                {
-                    result.Add(values[i]);
-                }
-            }
-            else
-            {
-                for (int i = indexFrom; i >= indexTo; i += step)
-                {
-                    result.Add(values[i]);
-                }
-            }
-            return result;
-        }
-
         public Series<DataType> Head(int count)
         {
             if (count < 0 || count > this.Count)
