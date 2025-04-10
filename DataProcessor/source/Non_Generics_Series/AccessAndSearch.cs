@@ -51,6 +51,18 @@ namespace DataProcessor.source.Non_Generics_Series
             return new View(this, slices);
         }
 
+        public View GetView(List<object> slice)
+        {
+            // check valid argument
+            var invalidIndex = slice.Where(v => !this.index.Contains(v)).ToList();
+            if(invalidIndex.Count != 0)
+            {
+                throw new ArgumentException($"slice contains index(es) that does not exist in the index of the series{string.Join(", ", invalidIndex.Select(x => x?.ToString()))}");
+            }
+            
+            return new View(this, slice);
+        }
+
         // searching and filter
         public IList<object?> Filter(Func<object?, bool> filter)
         {
