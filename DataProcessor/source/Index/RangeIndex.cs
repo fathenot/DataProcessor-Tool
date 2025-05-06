@@ -85,7 +85,7 @@ namespace DataProcessor.source.Index
             throw new KeyNotFoundException($"Index {index} not found");
         }
 
-        public override void Add(object key)
+        protected override void Add(object key)
         {
             throw new InvalidOperationException("Cannot add to RangeIndex. It is immutable.");
         }

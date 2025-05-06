@@ -97,5 +97,15 @@ namespace DataProcessor.source.Index
             // Cập nhật lại indexMap vì vị trí các phần tử phía sau đã thay đổi
             RebuildMap();
         }
+
+        public override object GetIndex(int idx)
+        {
+            return stringIndexes[idx];
+        }
+
+        public override IReadOnlyList<int> GetIndexPosition(object index)
+        {
+            return stringIndexMap[(string)index];
+        }
     }
 }

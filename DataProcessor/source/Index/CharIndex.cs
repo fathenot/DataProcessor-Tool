@@ -40,7 +40,7 @@ namespace DataProcessor.source.Index
 
         public override IReadOnlyList<int> GetIndexPosition(object index)
         {
-            return base.GetIndexPosition(index);
+            return indexMap[(char)index];
         }
 
         public override IIndex Slice(int start, int end, int step = 1)
