@@ -39,7 +39,7 @@ namespace DataProcessor.source.Index
             }
         }
 
-        public void Add(string index)
+        protected void Add(string index)
         {
             stringIndexes.Add(index);
             base.Add(index);
@@ -73,6 +73,12 @@ namespace DataProcessor.source.Index
                 }
             }
             return new StringIndex(slicedIndex);
+        }
+
+        protected override void Add(object key)
+        {
+            base.Add(key);
+            this.Add((string) key);
         }
 
         protected override void Drop(object key)
