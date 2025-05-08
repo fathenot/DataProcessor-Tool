@@ -14,16 +14,22 @@ namespace DataProcessor.source.NonGenericsSeries
 
         // handle multi threads, this will be implemented in the future
         private readonly Semaphore writeSemaphore = new Semaphore(1, 1);
-        private ReaderWriterLock rwl = new ReaderWriterLock();
+        private ReaderWriterLock readerWriterLock = new ReaderWriterLock();
 
         // inner class
-        public class View: IndexChangeListener
+        public class View : IndexChangeListener, IDisposable
         {
             private List<object> index;
             private Series series;
-            private List<int> convertedToIntIdx = new List<int>(); 
+            private List<int> convertedToIntIdx = new List<int>();
+            private bool shouldSyncIndex = true;
 
-            
+            // properties
+            public IReadOnlyList<object> Index => index;
+            public bool IsView { get; private set; }
+            public int Count => convertedToIntIdx.Count;
+
+            // methods
             public View(Series series, List<object> indices)
             {
                 ArgumentNullException.ThrowIfNull(series);
@@ -40,6 +46,7 @@ namespace DataProcessor.source.NonGenericsSeries
                     this.index.Add(index);
                     this.convertedToIntIdx.AddRange(positions); // Tránh lặp nhiều lần
                 }
+                series.synchronizer.RegisterView(this);
             }
 
             public View(Series series, (object start, object end, int step) slice)
@@ -88,7 +95,7 @@ namespace DataProcessor.source.NonGenericsSeries
                     }
 
                 }
-
+                series.synchronizer.RegisterView(this);
             }
 
             public Series ToSeries(string? seriesName = null)// Tạo một Series mới từ các giá trị trong view, giữ nguyên index và datatype gốc
@@ -108,57 +115,61 @@ namespace DataProcessor.source.NonGenericsSeries
                 return result;
             }
 
-            public void UpdateValue(object index, object newValue)
+            public void UpdateValue(object index,List<object?> newValues, bool inPlace = false)
             {
                 if (!this.index.Contains(index))
                 {
                     throw new IndexOutOfRangeException($"Index {index} not in view");
                 }
-                // check valid type of new Value
-                if (series.IsValidType(newValue))
+                if (newValues.Count == 0)
                 {
-                    this.series = this.ToSeries();
-                    foreach (var pos in series.indexMap[index])
-                    {
-                        series.values[pos] = newValue;
-                    }
                     return;
                 }
-                try // trying cast item to proper data type to add
+                List<int> positions = series.indexMap[index];
+                if (newValues.Count != positions.Count && newValues.Count != 1)
                 {
-                    if (series.dataType == typeof(int) && int.TryParse(newValue?.ToString(), out int intValue))
-                    {
-                        this.series = this.ToSeries();
-                        foreach (var pos in series.indexMap[index])
-                        {
-                            series.values[pos] = intValue;
-                        }
-                        return;
-                    }
-                    if (series.dataType == typeof(double) && double.TryParse(newValue?.ToString(), out double DoubleValue))
-                    {
-                        foreach (var pos in series.indexMap[index])
-                        {
-                            series.values[pos] = DoubleValue;
-                        }
-                        return;
-                    }
-                    if (series.dataType == typeof(DateTime) && DateTime.TryParse(newValue?.ToString(), out DateTime DateTimeValue))
-                    {
-                        foreach (var pos in series.indexMap[index])
-                        {
-                            series.values[pos] = DateTimeValue;
-                        }
-                        return;
-                    }
-                    var convertedItem = Convert.ChangeType(newValue, series.dataType);
+                    throw new InvalidOperationException($"index has {positions.Count} value but there are {newValues.Count} items ready for replace");
                 }
-                catch (Exception ex)
+                
+                shouldSyncIndex = false;
+                if (!inPlace)
                 {
-                    throw new InvalidOperationException(
-        $"Cannot convert value '{newValue}' (type: {newValue?.GetType().Name ?? "null"}) to expected type '{series.dataType.Name}' for index '{index}'.",
-        ex);
+                    IsView = false;
+                    this.series = this.ToSeries(null);
+                    if (newValues.Count == 1)
+                    {
+                        foreach (var position in positions)
+                        {
+                            series.values[position] = newValues[0];
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < positions.Count; i++)
+                        {
+                            series.values[i] = newValues[i];
+                        }
+                    }
                 }
+                else
+                {
+                    IsView = true;
+                    if (newValues.Count == 1)
+                    {
+                        foreach (var position in positions)
+                        {
+                            series.values[position] = newValues[0];
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < positions.Count; i++)
+                        {
+                            series.values[i] = newValues[i];
+                        }
+                    }
+                }
+                    
             }
 
             public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
@@ -290,16 +301,25 @@ namespace DataProcessor.source.NonGenericsSeries
 
             public void UpdateIndex()
             {
-                foreach(var IntIndex in this.convertedToIntIdx)
+                if (shouldSyncIndex)
                 {
-                    foreach(var seriesIndex in series.indexMap.Keys)
+                    index.Clear();
+                    foreach (var IntIndex in this.convertedToIntIdx)
                     {
-                        if (series.indexMap[seriesIndex].Contains(IntIndex))
+                        foreach (var seriesIndex in series.indexMap.Keys)
                         {
-                            index.Add(seriesIndex);
+                            if (series.indexMap[seriesIndex].Contains(IntIndex))
+                            {
+                                index.Add(seriesIndex);
+                            }
                         }
                     }
-                }
+                }              
+            }
+
+            void IDisposable.Dispose()
+            {
+                
             }
         }
 

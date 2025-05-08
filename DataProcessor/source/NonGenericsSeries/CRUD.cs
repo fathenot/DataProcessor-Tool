@@ -1,61 +1,73 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DataProcessor.source.NonGenericsSeries
+﻿namespace DataProcessor.source.NonGenericsSeries
 {
     public partial class Series
     {
+        /// <summary>
+        /// Add an item to the series.
+        /// If index = null it's index is the position of the item
+        /// </summary>
+        /// <param name="item"> item need to add </param>
+        /// <param name="index"> custom index to the added item </param>
         public void Add(object? item, object? index = null)
         {
-            if (!IsValidType(item))
-            {
-                try // trying cast item to proper data type to add
-                {
-                    if (dataType == typeof(int) && int.TryParse(item?.ToString(), out int intValue))
-                    {
-                        this.values.Add(intValue);
-                        return;
-                    }
-                    if (dataType == typeof(double) && double.TryParse(item?.ToString(), out double DoubleValue))
-                    {
-                        this.values.Add(DoubleValue);
-                        return;
-                    }
-                    if (dataType == typeof(DateTime) && DateTime.TryParse(item?.ToString(), out DateTime DateTimeValue))
-                    {
-                        this.values.Add(DateTimeValue);
-                        return;
-                    }
-                    var convertedItem = Convert.ChangeType(item, dataType);
-                    this.values.Add(convertedItem);
-                }
-                catch (Exception ex)
-                {
-                    throw new ArgumentException($"Expected type {dataType}, but got {item?.GetType()}. You must change the đata type to {this.dataType} first", ex);
-                }
-            }
-            if (index == null)
-            {
-                this.index.Add(this.Count);
-                this.indexMap[this.Count] = new List<int> { this.Count };
-                return;
-            }
+            values.Add(item);
+            Support.InferDataType(values);
+            // handle index
             if (index != null)
             {
-                this.index.Add(index);
-                if (!indexMap.TryGetValue(index, out var list))
+                foreach (var idx in indexMap.Keys)
                 {
-                    list = new List<int>();
-                    indexMap[index] = list;
+                    indexMap.TryGetValue(idx, out List<int> pos);
+                    if (pos.Contains(values.Count - 1))
+                    {
+                        pos.Remove(values.Count);
+                        return;
+                    }
                 }
-                list.Add(values.Count);
+                if (indexMap.TryGetValue(index, out List<int> positions))
+                {
+                    positions.Add(values.Count);
+                }
+                else
+                {
+                    indexMap[index] = new List<int> { values.Count };
+                    this.index.Add(index);
+                }
             }
-            this.values.Add(item);
+            else
+            {
+                foreach (var idx in indexMap.Keys)
+                {
+                    if (indexMap[idx].Contains(values.Count - 1))
+                    {
+                        return;
+                    }
+                }
+                indexMap[values.Count - 1] = new List<int> { values.Count-1};
+                this.index.Add((int)values.Count-1);
+            }
+            if (item != null)
+            {
+                dataType = Support.InferDataType(values);
+            }
         }
-        public bool Remove(object? item, bool deleteIndexIfEmpty = true) // remove all occurent of item
+
+        public bool RemoveFirstOccurence(object? item, bool deleteIndexIfEmpty = true)
+        {
+            var itemIndex = this.values.IndexOf(item);
+            // remove item then remap the index
+            return itemIndex >= 0;
+        }
+                              
+        /// <summary>
+        /// Removes all occurrences of the specified item from the series. 
+        /// </summary>
+        /// <param name="item">The item to remove.</param>
+        /// <param name="deleteIndexIfEmpty">
+        /// The index of the removed item, if no items are left with that index.
+        /// </param>
+        /// <returns>True if the item was successfully removed; otherwise, false.</returns>
+        public bool RemoveAllOccurence(object? item, bool deleteIndexIfEmpty = true) 
         {
             bool removed = false;
             var keysToDelete = new List<object>(); // Lưu index cần xóa
@@ -118,16 +130,29 @@ namespace DataProcessor.source.NonGenericsSeries
             {
                 indexMap.Remove(key);
             }
-
+            // update lại kiểu dữ liệu
+            Support.InferDataType(values);
             return true;
         }
+
+        /// <summary>
+        /// clear all the data of the series
+        /// </summary>
         public void Clear()
         {
             this.values.Clear();
             this.index.Clear();
             this.indexMap.Clear();
         }
-        public void UpdateValues(object index, List<object?> values)
+        /// <summary>
+        /// Update values of the series
+        /// </summary>
+        /// <param name="index">index of the </param>
+        /// <param name="values"> if values size is 1 it will replace all the elements of the series with the value in the list</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public void UpdateValues(object index, List<object?> newValues)
         {
             // checking valid arguments
             if (!this.indexMap.TryGetValue(index, out var positions))
@@ -164,15 +189,21 @@ namespace DataProcessor.source.NonGenericsSeries
             {
                 foreach (var posítion in positions)
                 {
-                    this.values[posítion] = values[0];
+                    this.values[posítion] = newValues[0];
                 }
                 return;
             }
             for (int i = 0; i < positions.Count; i++)
             {
-                this.values[i] = values[i];
+                this.values[i] = newValues[i];
             }
         }
+
+        /// <summary>
+        /// reasign the current with the values of other series.
+        /// Index of original series still unchange
+        /// </summary>
+        /// <param name="other"></param>
         public void UpdateValues(Series other)
         {
             this.indexMap.Clear();
@@ -188,6 +219,7 @@ namespace DataProcessor.source.NonGenericsSeries
             {
                 this.indexMap[key] = new List<int>(other.indexMap[key]);
             }
+            Support.InferDataType(values);
         }
     }
 }

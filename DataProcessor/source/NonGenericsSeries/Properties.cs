@@ -10,7 +10,7 @@ namespace DataProcessor.source.NonGenericsSeries
     {
         public string? Name { get { return this.seriesName; } }
         public IReadOnlyList<object?> Values => values == null ? throw new Exception("values list is null") : values as IReadOnlyList<object?> ?? values.ToList();
-        public int Count => values == null ? 0 : values.Count;
+        public int Count => values.Count;
         public bool IsReadOnly { get { return false; } }
         public Type DataType
         {
@@ -21,9 +21,9 @@ namespace DataProcessor.source.NonGenericsSeries
         {
             get
             {
-                if (!this.Contains(index))
+                if (!this.index.Contains(index))
                 {
-                    throw new ArgumentException("index not found", nameof(index));
+                    throw new ArgumentOutOfRangeException("index not found", nameof(index));
                 }
                 List<object?> res = new List<object?>();
                 foreach (int i in this.indexMap[index])
@@ -41,6 +41,7 @@ namespace DataProcessor.source.NonGenericsSeries
             }
             set
             {
+                // change the index
                 List<object> newIndex = value;
                 index.Clear();
                 if (newIndex != null)
@@ -71,6 +72,7 @@ namespace DataProcessor.source.NonGenericsSeries
                         indexMap[i] = new List<int> { i };
                     }
                 }
+                // notify to the view which has the reference to the series
                 synchronizer.Notify();
             }
         }
