@@ -13,7 +13,7 @@ namespace DataProcessor.source.Index
         private readonly int _step;
 
         // Constructor
-        public RangeIndex(int start, int stop, int step)
+        public RangeIndex(int start, int stop, int step = 1)
             : base(new List<object>())  // Base gọi constructor của IIndex, khởi tạo indexList trống
         {
             _start = start;
@@ -21,41 +21,18 @@ namespace DataProcessor.source.Index
             _step = step;
 
             // Chỉ cần cập nhật map cho RangeIndex
-            GenerateIndex();
         }
 
-        // Generate các giá trị index
-        private void GenerateIndex()
+        public override int Count => (_stop - _start) / _step;
+        public override IReadOnlyList<object> IndexList
         {
-            if (_step > 0)
+            get
             {
-                for (int i = _start; i < _stop; i += _step)
-                {
-                    indexList.Add(i);
-                    if (!indexMap.ContainsKey(i))
-                    {
-                        indexMap[i] = new List<int>();
-                    }
-                    indexMap[i].Add(indexList.Count - 1);  // Đảm bảo map index đến vị trí
-                }
-            }
-            else if (_step < 0)
-            {
-                for (int i = _start; i > _stop; i += _step)
-                {
-                    indexList.Add(i);
-                    if (!indexMap.ContainsKey(i))
-                    {
-                        indexMap[i] = new List<int>();
-                    }
-                    indexMap[i].Add(indexList.Count - 1);  // Đảm bảo map index đến vị trí
-                }
-            }
-            else
-            {
-                throw new ArgumentException("Step cannot be zero.");
+               return  this.DistinctIndices().ToList();
             }
         }
+
+
 
         // Override phương thức slice
         public override IIndex Slice(int start, int end, int step = 1)
@@ -72,27 +49,47 @@ namespace DataProcessor.source.Index
         // Override phương thức để lấy vị trí của index
         public override object GetIndex(int idx)
         {
-            return indexList[idx];
+            return _start + idx * _step;
         }
 
         // Override phương thức để lấy vị trí của một key
         public override IReadOnlyList<int> GetIndexPosition(object index)
         {
-            if (indexMap.ContainsKey(index))
+            return new List<int>{ FirstPositionOf(index) };
+        }
+
+        public override int FirstPositionOf(object key)
+        {
+            return Convert.ToInt32(key) - _start;
+        }
+
+        public override bool Contains(object key)
+        {
+            var tmp = Convert.ToInt32(key);
+            int i = 0;
+            while (i < tmp)
             {
-                return indexMap[(int)index];
+                i += _step;
             }
-            throw new KeyNotFoundException($"Index {index} not found");
+            return i == tmp;
         }
 
-        protected override void Add(object key)
+        public override IEnumerable<object> DistinctIndices()
         {
-            throw new InvalidOperationException("Cannot add to RangeIndex. It is immutable.");
+            List<object> tmp = new List<object>();
+            for(int i = _start; i != _stop; i+= _step)
+            {
+                tmp.Add(Convert.ToInt32(i));
+            }
+            return tmp;
         }
 
-        protected override void Drop(object key)
+        public override IEnumerator<object> GetEnumerator()
         {
-            throw new InvalidOperationException("Cannot add to RangeIndex. It is immutable.");
+            for (int i = _start; i != _stop; i += _step)
+            {
+                yield return i;
+            }
         }
     }
 }
