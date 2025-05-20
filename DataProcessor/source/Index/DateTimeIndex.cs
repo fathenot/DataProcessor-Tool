@@ -3,18 +3,24 @@
     public class DateTimeIndex : IIndex
     {
         private readonly List<DateTime> dateTimes;
-        private new readonly Dictionary<DateTime, List<int>> indexMap;
+        private readonly Dictionary<DateTime, List<int>> indexMap;
 
         // private methods
-        private void RebuildMap()
+
+        private static DateTime ConvertToDateTime(object value)
         {
-            indexMap.Clear();
-            for (int i = 0; i < indexList.Count; i++)
+            if (value == null)
             {
-                DateTime key = dateTimes[i];
-                if (!indexMap.ContainsKey(key))
-                    indexMap[key] = new List<int>();
-                indexMap[key].Add(i);
+                throw new ArgumentNullException("value");
+            }
+            try
+            {
+                return Convert.ToDateTime(value);
+            }
+            catch (Exception ex )
+            {
+
+                throw new ArgumentException($"Invalid index: cannot convert {value} to long.", ex);
             }
         }
 
@@ -33,6 +39,8 @@
 
         }
 
+        public override int Count => dateTimes.Count;
+        public override IReadOnlyList<object> IndexList => dateTimes.Cast<object>().ToList().AsReadOnly();
         public override IReadOnlyList<int> GetIndexPosition(object datetime)
         {
             if (datetime is DateTime time && indexMap.ContainsKey(time))
@@ -42,11 +50,23 @@
             throw new KeyNotFoundException($"time {datetime} not found");
         }
 
+        public override bool Contains(object key)
+        {
+            var tmp = ConvertToDateTime(key);
+            return indexMap.ContainsKey(tmp);
+        }
         public override object GetIndex(int idx)
         {
             return dateTimes[idx];
         }
 
+        public override int FirstPositionOf(object key)
+        {
+            var tmp = ConvertToDateTime(key);
+            if (indexMap.ContainsKey(tmp))
+                return indexMap[tmp][0];
+            return -1;
+        }
         public override IIndex Slice(int start, int end, int step = 1)
         {
             List<DateTime> slicedIndex = new List<DateTime>();
@@ -70,29 +90,16 @@
             }
             return new DateTimeIndex(slicedIndex);
         }
-        protected override void Add(object key)
+
+        public override IEnumerable<object> DistinctIndices()
         {
-            if (key is DateTime time)
-            {
-                indexList.Add(key);
-                if (!indexMap.ContainsKey(time))
-                {
-                    indexMap[time] = new List<int>();
-                }
-                indexMap[time].Add(Count - 1);
-                base.Add(key);
-                return;
-            }
-            throw new InvalidDataException($"{nameof(key)} must be datetime");
+            return dateTimes.Distinct().Cast<object>();
         }
-        protected override void Drop(object key)
+
+        public override IEnumerator<object> GetEnumerator()
         {
-            if (key is DateTime time)
-            {
-                indexList.Remove(key);
-                RebuildMap();
-            }
-            base.Drop(key);
+            foreach (var item in dateTimes)
+                yield return item;
         }
     }
 }

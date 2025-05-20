@@ -1,18 +1,24 @@
-﻿
-namespace DataProcessor.source.Index
+﻿namespace DataProcessor.source.Index
 {
     public class DoubleIndex : IIndex
     {
-        private new readonly List<double> indexList;
-        private new readonly Dictionary<double, List<int>> indexMap;
+        private readonly List<double> indexList;
+        private readonly Dictionary<double, List<int>> indexMap;
 
-        // constructor
-        public DoubleIndex()
+        private static double ConvertToDouble(object value)
         {
-            indexList = new List<double>();
-            indexMap = new Dictionary<double, List<int>>();
+            if (value == null)
+                throw new ArgumentNullException(nameof(value));
+            try
+            {
+                return Convert.ToDouble(value);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Invalid index: cannot convert {value} to double.", ex);
+            }
         }
-
+        // constructor
         public DoubleIndex(List<double> index) : base(index.Cast<object>().ToList())
         {
             indexList = index;
@@ -30,49 +36,9 @@ namespace DataProcessor.source.Index
             }
         }
 
-        // private method
-        private void RebuildMap()
-        {
-            indexMap.Clear();
-            for (int i = 0; i < indexList.Count; i++)
-            {
-                double key = indexList[i];
-                if (!indexMap.ContainsKey(key))
-                    indexMap[key] = new List<int>();
-                indexMap[key].Add(i);
-            }
-        }
+        public override int Count => indexList.Count;
 
-        // protected method
-        protected override void Drop(object key)
-        {
-            if (key is not double doubleKey || !indexMap.ContainsKey(doubleKey))
-                return;
-
-            var positions = indexMap[doubleKey];
-            foreach (var pos in positions.OrderByDescending(p => p))
-            {
-                indexList.RemoveAt(pos);
-            }
-
-            indexMap.Remove(doubleKey);
-
-            // Cập nhật lại indexMap vì vị trí các phần tử phía sau đã thay đổi
-            RebuildMap();
-        }
-
-        protected override void Add(object key)
-        {
-            if (key is double doubleKey)
-            {
-                if (!indexMap.ContainsKey(doubleKey))
-                {
-                    indexMap[doubleKey] = new List<int>();
-                }
-                indexList.Add(doubleKey);
-                indexMap[doubleKey].Add(Count - 1);
-            }
-        }
+        public override IReadOnlyList<object> IndexList => indexList.Cast<object>().ToList().AsReadOnly();
 
         //public and internal methods
         public override DoubleIndex Slice(int start, int end, int step)
@@ -105,6 +71,20 @@ namespace DataProcessor.source.Index
             return indexList[idx];
         }
 
+        public override bool Contains(object key)
+        {
+            double tmp = ConvertToDouble(key);
+            return indexMap.ContainsKey(tmp);
+        }
+
+        public override int FirstPositionOf(object key)
+        {
+            double tmp = ConvertToDouble(key);
+            if (indexMap.ContainsKey(tmp))
+                return indexMap[tmp][0];
+            return -1;
+        }
+
         public override IReadOnlyList<int> GetIndexPosition(object index)
         {
             if (index is double doubleKey && indexMap.ContainsKey(doubleKey))
@@ -112,6 +92,19 @@ namespace DataProcessor.source.Index
                 return indexMap[doubleKey];
             }
             throw new KeyNotFoundException($"Index {index} not found");
+        }
+
+        public override IEnumerable<object> DistinctIndices()
+        {
+            return indexList.Distinct().Cast<object>();
+        }
+
+        public override IEnumerator<object> GetEnumerator()
+        {
+            foreach (object item in indexList)
+            {
+                yield return item;
+            }
         }
     }
 }

@@ -2,9 +2,22 @@
 {
     public class Int64Index : IIndex
     {
-        private new readonly List<long> indexList;
-        private new readonly Dictionary<long, List<int>> indexMap;
+        private readonly List<long> indexList;
+        private readonly Dictionary<long, List<int>> indexMap;
 
+        private long ConvertToLong(object key)
+        {
+            if (key == null)
+                throw new ArgumentNullException(nameof(key));
+            try
+            {
+                return Convert.ToInt64(key);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Invalid index: cannot convert {key} to long.", ex);
+            }
+        }
         public Int64Index(List<long> indexList)
             : base(indexList.Cast<object>().ToList())
         {
@@ -23,46 +36,37 @@
             }
         }
 
-        // private methods
-        private void RebuildMap()
-        {
-            indexMap.Clear();
-            for (int i = 0; i < indexList.Count; i++)
-            {
-                long key = indexList[i];
-                if (!indexMap.ContainsKey(key))
-                    indexMap[key] = new List<int>();
-                indexMap[key].Add(i);
-            }
-        }
+        public override int Count => indexList.Count;
 
-        // protected methods
-        protected override void Add(object key)
-        {
-            if (key is long intKey)
-            {
-                indexList.Add(intKey);
-                if (!indexMap.ContainsKey(intKey))
-                {
-                    indexMap[intKey] = new List<int>();
-                }
-                indexMap[intKey].Add(Count - 1);
-            }
-
-        }
-
+        public override IReadOnlyList<object> IndexList => indexList.Cast<object>().ToList().AsReadOnly();
         // Lấy giá trị index tại vị trí idx
         public override object GetIndex(int idx)
         {
             return indexList[idx];
         }
 
+        public override int FirstPositionOf(object key)
+        {
+            if (key == null) throw new ArgumentNullException(nameof(key));
+            var tmp = ConvertToLong(key);
+            if (indexMap.TryGetValue(tmp, out var positions))
+                return positions[0];
+            return -1;
+        }
+
+        public override bool Contains(object key)
+        {
+            if(key == null) throw new ArgumentNullException( nameof(key));
+            var tmp = ConvertToLong(key);
+            return indexMap.ContainsKey(tmp);
+        }
         // Lấy tất cả các vị trí của một giá trị index
         public override List<int> GetIndexPosition(object index)
         {
-            if (index is long idxValue && indexMap.ContainsKey(idxValue))
+            var tmp = ConvertToLong(index);
+            if (indexMap.ContainsKey(tmp))
             {
-                return indexMap[idxValue];
+                return indexMap[tmp];
             }
             throw new KeyNotFoundException($"Index {index} not found.");
         }
@@ -71,7 +75,7 @@
         public override IIndex Slice(int start, int end, int step)
         {
             List<object> slicedIndex = new List<object>();
-            if(step == 0)
+            if (step == 0)
             {
                 throw new ArgumentException("step must not be 0");
             }
@@ -94,22 +98,15 @@
             return new Int64Index(slicedIndex.Cast<long>().ToList());  // Trả về Int64Index với List<long>
         }
 
-        protected override void Drop(object key)
+        public override IEnumerable<object> DistinctIndices()
         {
-            if (key is not long longKey || !indexMap.ContainsKey(longKey))
-                return;
-
-            var positions = indexMap[longKey];
-            foreach (var pos in positions.OrderByDescending(p => p))
-            {
-                indexList.RemoveAt(pos);
-            }
-
-            indexMap.Remove(longKey);
-
-            // Cập nhật lại indexMap vì vị trí các phần tử phía sau đã thay đổi
-            RebuildMap();
+            return indexList.Distinct().Cast<object>();
         }
 
+        public override IEnumerator<object> GetEnumerator()
+        {
+            foreach (var item in indexList)
+                yield return item;
+        }
     }
 }
