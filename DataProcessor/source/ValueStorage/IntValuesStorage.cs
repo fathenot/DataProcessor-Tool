@@ -30,16 +30,16 @@ namespace DataProcessor.source.ValueStorage
             return bitMap.IsNull(index) ? null : array[index];
         }
 
-        public override nint GetArrayAddress()
+        public override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();
         }
 
-        public override int Length => array.Length;
-        public override Type ValueType => typeof(long);
+        public override int Count => array.Length;
+        public override Type ElementType => typeof(long);
         public int CountNullValues => bitMap.CountNulls();
 
-        public override IEnumerable<int> NullPositions
+        public override IEnumerable<int> NullIndices
         {
             get
             {

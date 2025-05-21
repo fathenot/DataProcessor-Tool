@@ -17,9 +17,8 @@ namespace DataProcessor.source.ValueStorage
         {
             get { return strings; }
         }
-        public GCHandle Handle { get { return handle; } }
 
-        public override nint GetArrayAddress()
+        public override nint GetNativeBufferPointer()
         {
            return handle.AddrOfPinnedObject();
         }
@@ -39,9 +38,9 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override int Length => strings.Length;
+        public override int Count => strings.Length;
 
-        public override IEnumerable<int> NullPositions
+        public override IEnumerable<int> NullIndices
         {
             get
             {
@@ -56,6 +55,6 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override Type ValueType => typeof(string);
+        public override Type ElementType => typeof(string);
     }
 }

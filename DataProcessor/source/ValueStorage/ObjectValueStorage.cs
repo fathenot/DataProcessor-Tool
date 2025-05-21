@@ -18,7 +18,7 @@ namespace DataProcessor.source.ValueStorage
             handle = GCHandle.Alloc(objects, GCHandleType.Pinned);
         }
 
-        public override nint GetArrayAddress()
+        public override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();
         }
@@ -33,8 +33,8 @@ namespace DataProcessor.source.ValueStorage
             objects[index] = value;
         }
 
-        public override int Length => objects.Length;
-        public override IEnumerable<int> NullPositions
+        public override int Count => objects.Length;
+        public override IEnumerable<int> NullIndices
         {
             get
             {
@@ -48,6 +48,6 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override Type ValueType => typeof(object);
+        public override Type ElementType => typeof(object);
     }
 }

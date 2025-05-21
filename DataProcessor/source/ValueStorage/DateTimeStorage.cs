@@ -4,62 +4,115 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace DataProcessor.source.ValueStorage
 {
-    internal class DateTimeStorage: ValueStorage
+    /// <summary>
+    /// Represents a value storage specialized for storing nullable DateTime values.
+    /// Internally uses ticks (long) for high performance interoperability with unmanaged code.
+    /// </summary>
+    internal class DateTimeStorage : ValueStorage
     {
-        DateTime?[] dates;
-        GCHandle handle;
+        private readonly long[] _ticks;
+        private readonly NullBitMap _nullMap;
+        private readonly GCHandle _handle;
 
+        /// <summary>
+        /// Initializes a new instance of <see cref="DateTimeStorage"/> using a nullable DateTime array.
+        /// </summary>
+        /// <param name="dates">The array of nullable DateTime values to store.</param>
         internal DateTimeStorage(DateTime?[] dates)
         {
-            this.dates = dates;
-            handle = GCHandle.Alloc(dates, GCHandleType.Pinned);
+            _ticks = new long[dates.Length];
+            _nullMap = new NullBitMap(dates.Length);
+
+            for (int i = 0; i < dates.Length; i++)
+            {
+                if (dates[i].HasValue)
+                {
+                    _ticks[i] = dates[i].Value.Ticks;
+                }
+                else
+                {
+                    _nullMap.SetNull(i, true);
+                    _ticks[i] = 0; // Placeholder for null
+                }
+            }
+
+            _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
-        public DateTime?[] GetDates() { return dates; } 
-        public GCHandle GetHandle() { return handle; }
+        public override int Count => _ticks.Length;
+
+        public override Type ElementType => typeof(DateTime);
 
         public override object? GetValue(int index)
         {
-            return dates[index];
+            ValidateIndex(index);
+            return _nullMap.IsNull(index) ? null : new DateTime(_ticks[index], DateTimeKind.Utc);
         }
 
-        public override nint GetArrayAddress()
+        public override void SetValue(int index, object? value)
         {
-            return handle.AddrOfPinnedObject();
+            ValidateIndex(index);
+
+            if (value is null)
+            {
+                _nullMap.SetNull(index, true);
+                _ticks[index] = 0;
+            }
+            else if (value is DateTime dt)
+            {
+                _ticks[index] = dt.Ticks;
+                _nullMap.SetNull(index, false);
+            }
+            else
+            {
+                throw new InvalidCastException("Expected a DateTime or null.");
+            }
         }
 
-        public override int Length => dates.Length;
-
-        public override IEnumerable<int> NullPositions
+        public override IEnumerable<int> NullIndices
         {
             get
             {
-                for (int i = 0; i < dates.Length; i++)
+                for (int i = 0; i < _ticks.Length; i++)
                 {
-                    if (dates[i] == null)
-                    {
+                    if (_nullMap.IsNull(i))
                         yield return i;
-                    }
                 }
             }
         }
 
-        public override Type ValueType => typeof(DateTime);
-
-        public override void SetValue(int index, object? value)
+        public override nint GetNativeBufferPointer()
         {
-            if(value == null)
-            {
-                dates[index] = null;
-            }      
-            if(value is DateTime dateTime)
-            {
-                dates[index] = dateTime;
-            }
+            return _handle.AddrOfPinnedObject();
+        }
+
+        /// <summary>
+        /// Gets the raw ticks array.
+        /// </summary>
+        public long[] RawTicks => _ticks;
+
+        /// <summary>
+        /// Frees the pinned handle. Must be called if you manually manage lifetime.
+        /// </summary>
+        public void DisposeHandle()
+        {
+            if (_handle.IsAllocated)
+                _handle.Free();
+        }
+
+        private void ValidateIndex(int index)
+        {
+            if (index < 0 || index >= Count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        ~DateTimeStorage()
+        {
+            if (_handle.IsAllocated)
+                _handle.Free();
         }
     }
 }
