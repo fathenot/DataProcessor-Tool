@@ -44,7 +44,7 @@ namespace DataProcessor.source.Index
         /// </summary>
         /// <param name="index">The value to locate in the index.</param>
         /// <returns>A list of positions where the value occurs.</returns>
-        public abstract IReadOnlyList<int> GetIndexPosition(object index);
+        public abstract IList<int> GetIndexPosition(object index);
 
         /// <summary>
         /// Determines whether the index contains the specified key.

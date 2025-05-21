@@ -53,7 +53,7 @@ namespace DataProcessor.source.Index
         }
 
         // Override phương thức để lấy vị trí của một key
-        public override IReadOnlyList<int> GetIndexPosition(object index)
+        public override IList<int> GetIndexPosition(object index)
         {
             return new List<int>{ FirstPositionOf(index) };
         }

@@ -86,9 +86,9 @@ namespace DataProcessor.source.Index
             return stringIndexes[idx];
         }
 
-        public override IReadOnlyList<int> GetIndexPosition(object index)
+        public override IList<int> GetIndexPosition(object index)
         {
-            return stringIndexMap[(string)index];
+            return new List<int> (stringIndexMap[(string)index]);
         }
 
         public override IEnumerable<object> DistinctIndices()

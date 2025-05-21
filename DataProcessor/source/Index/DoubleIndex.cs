@@ -85,7 +85,7 @@
             return -1;
         }
 
-        public override IReadOnlyList<int> GetIndexPosition(object index)
+        public override IList<int> GetIndexPosition(object index)
         {
             if (index is double doubleKey && indexMap.ContainsKey(doubleKey))
             {

@@ -150,11 +150,11 @@
             throw new KeyNotFoundException($"Key {string.Join(", ", key)} not found.");
         }
 
-        public override IReadOnlyList<int> GetIndexPosition(object index)
+        public override IList<int> GetIndexPosition(object index)
         {
             if (index is object[] arr)
             {
-                return GetIndexPosition(arr);
+                return new List<int> (GetIndexPosition(arr));
             }
             if (index is MultiKey multiKey)
             {
