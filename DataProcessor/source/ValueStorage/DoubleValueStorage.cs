@@ -1,8 +1,12 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections;
+using System.Runtime.InteropServices;
 
 namespace DataProcessor.source.ValueStorage
 {
-    internal class DoubleValueStorage : ValueStorage
+    /// <summary>
+    /// this class provides storage for nullable double values, allowing for efficient memory usage and null tracking.
+    /// </summary>
+    internal class DoubleValueStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly double[] array;
         NullBitMap nullBitMap;
@@ -28,16 +32,19 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override nint GetNativeBufferPointer()
+        internal override Type ElementType => typeof(double);
+
+        internal override int Count => array.Length;
+        internal override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();
         }
-        public override object? GetValue(int index)
+        internal override object? GetValue(int index)
         {
-            return array[index];
+            return nullBitMap.IsNull(index) ? null : array[index];
         }
-        public override int Count => array.Length;
-        public override IEnumerable<int> NullIndices
+
+        internal override IEnumerable<int> NullIndices
         {
             get
             {
@@ -51,9 +58,9 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override void SetValue(int index, object? value)
+        internal override void SetValue(int index, object? value)
         {
-            if (value is double doubleValue)
+            if (value is double || value is float)
             {
                 array[index] = (double)value;
                 nullBitMap.SetNull(index, false);
@@ -69,6 +76,53 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override Type ElementType => typeof(double);
+        ~DoubleValueStorage()
+        {
+            if (handle.IsAllocated)
+            {
+                handle.Free();
+            }
+        }
+
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            return new DoubleEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+        internal class DoubleEnumerator : IEnumerator<object?>
+        {
+            private readonly DoubleValueStorage storage;
+            private int currentIndex = -1;
+            internal DoubleEnumerator(DoubleValueStorage storage)
+            {
+                this.storage = storage;
+            }
+            public object? Current
+            {
+                get
+                {
+                    if (currentIndex < 0 || currentIndex >= storage.Count)
+                    {
+                        throw new InvalidOperationException("index is out of range");
+                    }
+                    return storage.GetValue(currentIndex);
+                }
+            }
+            object IEnumerator.Current => Current!;
+            public void Dispose() { }
+            public bool MoveNext()
+            {
+                currentIndex++;
+                return currentIndex < storage.Count;
+            }
+            public void Reset()
+            {
+                currentIndex = -1;
+            }
+        }
     }
 }

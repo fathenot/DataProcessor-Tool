@@ -1,58 +1,54 @@
-﻿using System;
+﻿using DataProcessor.source.ValueStorage;
+using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace DataProcessor.source.ValueStorage
+namespace DataProcessor.Source.ValueStorage
 {
     /// <summary>
-    /// Represents a value storage specialized for storing nullable DateTime values.
-    /// Internally uses ticks (long) for high performance interoperability with unmanaged code.
+    /// Provides storage for nullable <see cref="DateTime"/> values using internal tick representation for native interop.
     /// </summary>
-    internal class DateTimeStorage : ValueStorage
+    internal sealed class DateTimeStorage : AbstractValueStorage, IEnumerable<object?>, IDisposable
     {
         private readonly long[] _ticks;
         private readonly NullBitMap _nullMap;
         private readonly GCHandle _handle;
+        private bool _disposed;
 
-        /// <summary>
-        /// Initializes a new instance of <see cref="DateTimeStorage"/> using a nullable DateTime array.
-        /// </summary>
-        /// <param name="dates">The array of nullable DateTime values to store.</param>
-        internal DateTimeStorage(DateTime?[] dates)
+        public DateTimeStorage(DateTime?[] values)
         {
-            _ticks = new long[dates.Length];
-            _nullMap = new NullBitMap(dates.Length);
+            _ticks = new long[values.Length];
+            _nullMap = new NullBitMap(values.Length);
 
-            for (int i = 0; i < dates.Length; i++)
+            for (int i = 0; i < values.Length; i++)
             {
-                if (dates[i].HasValue)
+                if (values[i].HasValue)
                 {
-                    _ticks[i] = dates[i].Value.Ticks;
+                    _ticks[i] = values[i].Value.Ticks;
+                    _nullMap.SetNull(i, false);
                 }
                 else
                 {
+                    _ticks[i] = 0; // placeholder
                     _nullMap.SetNull(i, true);
-                    _ticks[i] = 0; // Placeholder for null
                 }
             }
 
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
-        public override int Count => _ticks.Length;
+        internal override int Count => _ticks.Length;
 
-        public override Type ElementType => typeof(DateTime);
+        internal override Type ElementType => typeof(DateTime);
 
-        public override object? GetValue(int index)
+        internal override object? GetValue(int index)
         {
             ValidateIndex(index);
             return _nullMap.IsNull(index) ? null : new DateTime(_ticks[index], DateTimeKind.Utc);
         }
 
-        public override void SetValue(int index, object? value)
+        internal override void SetValue(int index, object? value)
         {
             ValidateIndex(index);
 
@@ -60,19 +56,27 @@ namespace DataProcessor.source.ValueStorage
             {
                 _nullMap.SetNull(index, true);
                 _ticks[index] = 0;
+                return;
             }
-            else if (value is DateTime dt)
+
+            if (value is DateTime dt)
             {
                 _ticks[index] = dt.Ticks;
                 _nullMap.SetNull(index, false);
+                return;
             }
-            else
+
+            if (value is IConvertible convertible)
             {
-                throw new InvalidCastException("Expected a DateTime or null.");
+                _ticks[index] = Convert.ToDateTime(convertible).Ticks;
+                _nullMap.SetNull(index, false);
+                return;
             }
+
+            throw new InvalidCastException("Value must be of type DateTime or convertible to DateTime.");
         }
 
-        public override IEnumerable<int> NullIndices
+       internal override IEnumerable<int> NullIndices
         {
             get
             {
@@ -84,35 +88,95 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override nint GetNativeBufferPointer()
+       internal override nint GetNativeBufferPointer()
         {
+            EnsureNotDisposed();
             return _handle.AddrOfPinnedObject();
         }
 
-        /// <summary>
-        /// Gets the raw ticks array.
-        /// </summary>
-        public long[] RawTicks => _ticks;
-
-        /// <summary>
-        /// Frees the pinned handle. Must be called if you manually manage lifetime.
-        /// </summary>
-        public void DisposeHandle()
+        public long[] RawTicks
         {
-            if (_handle.IsAllocated)
-                _handle.Free();
+            get
+            {
+                EnsureNotDisposed();
+                return _ticks;
+            }
         }
+
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            EnsureNotDisposed();
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         private void ValidateIndex(int index)
         {
-            if (index < 0 || index >= Count)
+            if (index < 0 || index >= _ticks.Length)
                 throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        private void EnsureNotDisposed()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(DateTimeStorage));
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                if (_handle.IsAllocated)
+                    _handle.Free();
+
+                _disposed = true;
+                GC.SuppressFinalize(this);
+            }
         }
 
         ~DateTimeStorage()
         {
-            if (_handle.IsAllocated)
-                _handle.Free();
+            Dispose();
+        }
+
+        private sealed class Enumerator : IEnumerator<object?>
+        {
+            private DateTimeStorage storage;
+            private int _currentIndex;
+
+            public Enumerator(DateTimeStorage storage)
+            {
+               this.storage = storage;
+            }
+
+            public object? Current
+            {
+                get
+                {
+                    if (_currentIndex < 0 || _currentIndex >= storage.Count)
+                        throw new InvalidOperationException();
+                     return storage.GetValue(_currentIndex);
+                }
+            }
+
+            object IEnumerator.Current => Current!;
+
+            public bool MoveNext()
+            {
+                _currentIndex++;
+                return _currentIndex < storage.Count;
+            }
+
+            public void Reset()
+            {
+                _currentIndex = -1;
+            }
+
+            public void Dispose()
+            {
+                // No-op
+            }
         }
     }
 }

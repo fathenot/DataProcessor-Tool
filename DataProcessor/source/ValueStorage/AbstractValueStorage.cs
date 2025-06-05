@@ -51,5 +51,11 @@ namespace DataProcessor.source.ValueStorage
         /// Required for IEnumerable compatibility with non-generic consumers.
         /// </summary>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        internal object? this[int index]
+        {
+            get => GetValue(index);
+            set => SetValue(index, value);
+        }
     }
 }

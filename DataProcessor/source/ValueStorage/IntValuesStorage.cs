@@ -1,80 +1,141 @@
-﻿using System.Runtime.InteropServices;
+﻿using DataProcessor.source.ValueStorage;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
-namespace DataProcessor.source.ValueStorage
+namespace DataProcessor.Source.ValueStorage
 {
-    internal class IntStorage : ValueStorage
+    /// <summary>
+    /// Provides storage for nullable 64-bit integer values, with support for null tracking and native buffer access.
+    /// </summary>
+    internal class IntValuesStorage :AbstractValueStorage, IEnumerable<object?>
     {
-        private readonly long[] array;
-        NullBitMap bitMap;
-        GCHandle handle;
+        private readonly long[] _intValues;
+        private readonly NullBitMap _bitMap;
+        private readonly GCHandle _handle;
 
-        internal IntStorage(long?[] intValues)
+        public IntValuesStorage(long?[] values)
         {
-            array = new long[intValues.Length];
-            bitMap = new NullBitMap(intValues.Length);
+            _intValues = new long[values.Length];
+            _bitMap = new NullBitMap(values.Length);
 
-            for (int i = 0; i < intValues.Length; i++)
+            for (int i = 0; i < values.Length; i++)
             {
-                bitMap.SetNull(i, intValues[i] == null);
-
-                if (intValues[i] != null)
+                if (values[i].HasValue)
                 {
-                    array[i] = (long)intValues[i];
+                    _intValues[i] = values[i].Value;
                 }
+                _bitMap.SetNull(i, !values[i].HasValue);
             }
-            handle = GCHandle.Alloc(array, GCHandleType.Pinned);
+
+            _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
         }
 
-        public override object? GetValue(int index)
+        internal override object? GetValue(int index)
         {
-            return bitMap.IsNull(index) ? null : array[index];
+            ValidateIndex(index);
+            return _bitMap.IsNull(index) ? null : _intValues[index];
         }
 
-        public override nint GetNativeBufferPointer()
+        internal override void SetValue(int index, object? value)
         {
-            return handle.AddrOfPinnedObject();
+            ValidateIndex(index);
+
+            if (value is null)
+            {
+                _bitMap.SetNull(index, true);
+                _intValues[index] = default;
+                return;
+            }
+
+            if (value is IConvertible convertible)
+            {
+                _intValues[index] = Convert.ToInt64(convertible);
+                _bitMap.SetNull(index, false);
+                return;
+            }
+
+            throw new InvalidCastException("Value must be a numeric type or null.");
         }
 
-        public override int Count => array.Length;
-        public override Type ElementType => typeof(long);
-        public int CountNullValues => bitMap.CountNulls();
+        internal override nint GetNativeBufferPointer() => _handle.AddrOfPinnedObject();
 
-        public override IEnumerable<int> NullIndices
+        internal override int Count => _intValues.Length;
+
+        internal override Type ElementType => typeof(long);
+
+        public int CountNullValues => _bitMap.CountNulls();
+
+        internal override IEnumerable<int> NullIndices
         {
             get
             {
-                for (int i = 0; i < array.Length; i++)
+                for (int i = 0; i < _intValues.Length; i++)
                 {
-                    if (bitMap.IsNull(i))
-                    {
+                    if (_bitMap.IsNull(i))
                         yield return i;
-                    }
                 }
             }
         }
 
-
-        public override void SetValue(int index, object? value)
+        public override IEnumerator<object?> GetEnumerator()
         {
-            if (index < 0 || index >= array.Length) throw new ArgumentOutOfRangeException(nameof(index));
-            if (value is long longValue)
-            {
-                array[index] = longValue;
-                bitMap.SetNull(index, false);
-            }
-            if (value is null)
-            {
-                bitMap.SetNull(index, true);
-                array[index] = default;
-            }
-            else
-            {
-                throw new InvalidCastException("Expected a long or null");
-            }
+            return new Enumerator(this);
         }
-        ~IntStorage()
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        ~IntValuesStorage()
         {
-            handle.Free();
+            if (_handle.IsAllocated)
+                _handle.Free();
+        }
+
+        private void ValidateIndex(int index)
+        {
+            if (index < 0 || index >= _intValues.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        private sealed class Enumerator : IEnumerator<object?>
+        {
+            private IntValuesStorage storage;
+            private int _currentIndex = -1;
+
+            public Enumerator(IntValuesStorage storage)
+            {
+               this.storage = storage;
+                _currentIndex = -1;
+            }
+
+            public object? Current
+            {
+                get
+                {
+                    if (_currentIndex < 0 || _currentIndex >= storage._intValues.Length)
+                        throw new InvalidOperationException("Enumerator is not positioned within the collection.");
+                    return storage.GetValue(_currentIndex);
+                }
+            }
+
+            object IEnumerator.Current => Current!;
+
+            public bool MoveNext()
+            {
+                _currentIndex++;
+                return _currentIndex < storage.Count;
+            }
+
+            public void Reset()
+            {
+                _currentIndex = -1;
+            }
+
+            public void Dispose()
+            {
+                // No-op
+            }
         }
     }
 }

@@ -14,10 +14,10 @@
         /// with the capacity to track null states for the specified number of items.
         /// </summary>
         /// <param name="totalItems">The total number of elements to track.</param>
-        public NullBitMap(int totalItems)
+        internal NullBitMap(int totalItems)
         {
             chunks = new List<uint>();
-            int numChunks = (totalItems + 63) / 64;  // Calculate number of 64-bit chunks needed
+            int numChunks = (totalItems + 31) / 32;  // Calculate number of 32-bit chunks needed
             for (int i = 0; i < numChunks; i++)
             {
                 chunks.Add(0);  // Initialize each chunk with all bits set to 0 (not null)
@@ -29,10 +29,10 @@
         /// </summary>
         /// <param name="index">The zero-based index of the element.</param>
         /// <param name="isNull">If set to <c>true</c>, marks the element as null; otherwise, not null.</param>
-        public void SetNull(int index, bool isNull)
+        internal void SetNull(int index, bool isNull)
         {
-            int chunkIndex = index / 64;  // Identify which chunk holds the bit for this index
-            int bitIndex = index % 64;    // Identify the bit position within the chunk (0-63)
+            int chunkIndex = index / 32;  // Identify which chunk holds the bit for this index
+            int bitIndex = index % 32;    // Identify the bit position within the chunk (0-31)
             if (isNull)
             {
                 chunks[chunkIndex] |= (1U << bitIndex);  // Set the bit to 1 indicating null
@@ -48,10 +48,10 @@
         /// </summary>
         /// <param name="index">The zero-based index of the element.</param>
         /// <returns><c>true</c> if the element is null; otherwise, <c>false</c>.</returns>
-        public bool IsNull(int index)
+        internal bool IsNull(int index)
         {
-            int chunkIndex = index / 64;  // Identify chunk containing the bit
-            int bitIndex = index % 64;    // Identify bit position within chunk
+            int chunkIndex = index / 32;  // Identify chunk containing the bit
+            int bitIndex = index % 32;    // Identify bit position within chunk
 
             // Check if the bit at bitIndex is set (1) meaning null
             return (chunks[chunkIndex] & (1U << bitIndex)) != 0;
@@ -61,7 +61,7 @@
         /// Returns a copy of the internal chunks as an array.
         /// </summary>
         /// <returns>An array of <see cref="uint"/> representing the bitmap chunks.</returns>
-        public uint[] ToArray()
+        internal uint[] ToArray()
         {
             return chunks.ToArray();
         }
@@ -70,7 +70,7 @@
         /// Counts the total number of elements marked as null in the bitmap.
         /// </summary>
         /// <returns>The count of null elements.</returns>
-        public int CountNulls()
+        internal int CountNulls()
         {
             int count = 0;
             foreach (var chunk in chunks)
@@ -101,7 +101,7 @@
         /// Creates a shallow clone of the current <see cref="NullBitMap"/>.
         /// </summary>
         /// <returns>A new <see cref="NullBitMap"/> instance with the same chunk data.</returns>
-        public NullBitMap Clone()
+        internal NullBitMap Clone()
         {
             var clone = new NullBitMap(0);
             clone.chunks.AddRange(this.chunks);

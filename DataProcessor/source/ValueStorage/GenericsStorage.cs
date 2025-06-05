@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -13,7 +14,8 @@ namespace DataProcessor.source.ValueStorage
     /// Stores values of type <typeparamref name="T"/> with null tracking using a bitmap.
     /// </summary>
     /// <typeparam name="T">The data type to store in this storage.</typeparam>
-    internal class GenericsStorage<T> : ValueStorage
+    internal class GenericsStorage<T> : AbstractValueStorage, IEnumerable<object?>, IDisposable
+        where T: notnull
     {
         /// <summary>
         /// The array of values stored in this storage instance.
@@ -49,25 +51,25 @@ namespace DataProcessor.source.ValueStorage
         }
 
         /// <inheritdoc />
-        public override int Count => values.Length;
+        internal override int Count => values.Length;
 
         /// <inheritdoc />
-        public override Type ElementType => typeof(T);
+        internal override Type ElementType => typeof(T);
 
         /// <inheritdoc />
-        public override object? GetValue(int index)
+        internal override object? GetValue(int index)
         {
             return values[index];
         }
 
         /// <inheritdoc />
-        public override nint GetNativeBufferPointer()
+        internal override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();
         }
 
         /// <inheritdoc />
-        public override void SetValue(int index, object? value)
+        internal override void SetValue(int index, object? value)
         {
             if (index < 0 || index >= values.Length)
                 throw new ArgumentOutOfRangeException(nameof(index));
@@ -91,7 +93,7 @@ namespace DataProcessor.source.ValueStorage
         /// <summary>
         /// Gets the indexes of the null values in this storage.
         /// </summary>
-        public override IEnumerable<int> NullIndices
+        internal override IEnumerable<int> NullIndices
         {
             get
             {
@@ -105,9 +107,60 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        private sealed class GenericsValueEnumerator : IEnumerator<object?>
+        {
+            private readonly T[] values;
+            private readonly NullBitMap nullBitMap;
+            private int currentIndex = -1;
+
+            public GenericsValueEnumerator(T[] values, NullBitMap nullBitMap)
+            {
+                this.values = values;
+                this.nullBitMap = nullBitMap;
+            }
+
+            public object? Current => nullBitMap.IsNull(currentIndex) ? null : values[currentIndex];
+
+            object? IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                currentIndex++;
+                return currentIndex < values.Length;
+            }
+
+            public void Reset()
+            {
+                currentIndex = -1;
+            }
+
+            public void Dispose() { }
+        }
+
+        public void Dispose()
+        {
+            if (handle.IsAllocated)
+            {
+                handle.Free();
+            }
+        }
+
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            return new GenericsValueEnumerator(values, nullBitMap);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
         ~GenericsStorage()
         {
-            handle.Free();
+           if(handle.IsAllocated)
+           {
+               handle.Free();
+            }
         }
     }
 }

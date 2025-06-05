@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections;
 using System.Runtime.InteropServices;
 
 namespace DataProcessor.source.ValueStorage
 {
-    internal class CharStorage : ValueStorage
+    internal class CharStorage : AbstractValueStorage, IEnumerable<object?>
     {
         char[] chars;
         NullBitMap nullbitMap;
@@ -44,7 +40,7 @@ namespace DataProcessor.source.ValueStorage
 
         internal override object? GetValue(int index)
         {
-            if(nullbitMap.IsNull(index))
+            if (nullbitMap.IsNull(index))
             {
                 return null;
             }
@@ -82,6 +78,43 @@ namespace DataProcessor.source.ValueStorage
                 throw new InvalidCastException($"Expected a value of type {typeof(char)} or null.");
             }
 
+        }
+
+
+        private sealed class CharValueEnumerator : IEnumerator<object?>
+        {
+            /// <summary>
+            /// this class make for creating enumerator
+            /// </summary>
+
+            private readonly CharStorage storage;
+            private int currentIndex = -1;
+            public CharValueEnumerator(CharStorage storage)
+            {
+                this.storage = storage;
+            }
+            public object? Current => storage.GetValue(currentIndex);
+            object? System.Collections.IEnumerator.Current => Current;
+            public bool MoveNext()
+            {
+                currentIndex++;
+                return currentIndex < storage.Count;
+            }
+            public void Reset()
+            {
+                currentIndex = -1;
+            }
+            public void Dispose() { }
+        }
+
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            return new CharValueEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return new CharValueEnumerator(this);
         }
 
         ~CharStorage()

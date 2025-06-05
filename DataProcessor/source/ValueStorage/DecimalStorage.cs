@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections;
 using System.Runtime.InteropServices;
 
 namespace DataProcessor.source.ValueStorage
 {
-    internal class DecimalStorage : ValueStorage
+    internal class DecimalStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly decimal[] decimals;
         NullBitMap nullBitMap;
@@ -26,7 +22,7 @@ namespace DataProcessor.source.ValueStorage
                 }
                 else
                 {
-                    this.decimals[i] = decimals[i].Value;
+                    this.decimals[i] = Convert.ToDecimal(decimals[i]);
                     nullBitMap.SetNull(i, false);
                 }
             }
@@ -66,5 +62,49 @@ namespace DataProcessor.source.ValueStorage
             }
         }
         internal override Type ElementType => typeof(decimal);
+
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            return new DecimalValueEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private sealed class DecimalValueEnumerator : IEnumerator<object?>
+        {
+            DecimalStorage storage;
+            int position;
+            public DecimalValueEnumerator(DecimalStorage storage)
+            {
+               this.storage = storage;
+                position = -1;
+            }
+            public bool MoveNext()
+            {
+                position++;
+                return position <storage.Count;
+            }
+            public void Reset()
+            {
+                position = -1;
+            }
+            public object? Current
+            {
+                get
+                {
+                    if (position >= storage.Count || position < 0)
+                    {
+                        throw new InvalidOperationException();
+                    }
+                    return storage.GetValue(position);
+
+                }
+            }
+            object? System.Collections.IEnumerator.Current => Current;
+            public void Dispose() { }
+        }
     }
 }
