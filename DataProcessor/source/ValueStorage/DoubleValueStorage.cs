@@ -12,6 +12,18 @@ namespace DataProcessor.source.ValueStorage
         NullBitMap nullBitMap;
         GCHandle handle;
 
+        /// <summary>
+        /// Validates that the specified index is within the bounds of the array.
+        /// </summary>
+        /// <param name="index">The index to validate. Must be greater than or equal to 0 and less than the length of the array.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="index"/> is less than 0 or greater than or equal to the length of the array.</exception>
+        private void ValidateIndex(int index)
+        {
+            if (index < 0 || index >= array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+            }
+        }
         internal DoubleValueStorage(double?[] array)
         {
             this.array = new double[array.Length];
@@ -41,6 +53,7 @@ namespace DataProcessor.source.ValueStorage
         }
         internal override object? GetValue(int index)
         {
+            ValidateIndex(index);
             return nullBitMap.IsNull(index) ? null : array[index];
         }
 
@@ -60,20 +73,20 @@ namespace DataProcessor.source.ValueStorage
 
         internal override void SetValue(int index, object? value)
         {
+            ValidateIndex(index);
             if (value is double || value is float)
             {
                 array[index] = (double)value;
                 nullBitMap.SetNull(index, false);
+                return;
             }
             if (value is null)
             {
                 array[index] = default;
                 nullBitMap.SetNull(index, true);
+                return;
             }
-            else
-            {
-                throw new ArgumentException($"value: {nameof(value)} is not double");
-            }
+            throw new ArgumentException("Value must be of type double, float or null.", nameof(value));
         }
 
         ~DoubleValueStorage()

@@ -6,8 +6,24 @@ namespace DataProcessor.source.ValueStorage
     internal class DecimalStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly decimal[] decimals;
-        NullBitMap nullBitMap;
-        GCHandle handle;
+        private NullBitMap nullBitMap;
+        private GCHandle handle;
+
+        /// <summary>
+        /// Validates that the specified index is within the bounds of the <see cref="decimals"/> array.
+        /// </summary>
+        /// <param name="index">The index to validate. Must be greater than or equal to 0 and less than the length of the <see
+        /// cref="decimals"/> array.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="index"/> is less than 0 or greater than or equal to the length of the <see
+        /// cref="decimals"/> array.</exception>
+        private void ValidateIndex(int index)
+        {
+                       if (index < 0 || index >= decimals.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+            }
+        }
+
         internal DecimalStorage(decimal?[] decimals)
         {
             this.decimals = new decimal[decimals.Length];
@@ -37,15 +53,22 @@ namespace DataProcessor.source.ValueStorage
         }
         internal override void SetValue(int index, object? value)
         {
-            if (value is decimal decimalValue)
+            ValidateIndex(index);
+            if (!(value is null) && !(value is decimal))
             {
-                decimals[index] = decimalValue;
+                throw new ArgumentException("Value must be of type decimal or null.", nameof(value));
+            }
+            if (value is null)
+            {
+                nullBitMap.SetNull(index, true);
+                decimals[index] = default; // Set to default value for decimal
             }
             else
             {
-                nullBitMap.SetNull(index, true);
-                decimals[index] = default; // Reset to default value if null
+                nullBitMap.SetNull(index, false);
+                decimals[index] = Convert.ToDecimal(value);
             }
+
         }
         internal override int Count => decimals.Length;
         internal override IEnumerable<int> NullIndices

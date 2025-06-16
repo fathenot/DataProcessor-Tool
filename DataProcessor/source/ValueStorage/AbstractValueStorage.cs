@@ -52,10 +52,45 @@ namespace DataProcessor.source.ValueStorage
         /// </summary>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <summary>
+        /// Gets or sets the value at the specified index.
+        /// </summary>
+        /// <param name="index">The zero-based index of the value to get or set.</param>
+        /// <returns></returns>
         internal object? this[int index]
         {
             get => GetValue(index);
             set => SetValue(index, value);
         }
+
+        /// <summary>
+        /// Enumerates the elements of the collection that can be cast to the specified type.
+        /// </summary>
+        /// <remarks>Elements that cannot be cast to the specified type are skipped. This method uses
+        /// deferred execution.</remarks>
+        /// <typeparam name="T">The type to which the elements should be cast.</typeparam>
+        /// <returns>An <see cref="IEnumerable{T}"/> containing the elements of the collection that are successfully cast to type
+        /// <typeparamref name="T"/>.</returns>
+        public IEnumerable<T?> AsTyped<T>()
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                var value = GetValue(i);
+
+                if (value is null)
+                {
+                    yield return default; // null vẫn là T? nếu T là struct
+                }
+                else if (value is T t)
+                {
+                    yield return t;
+                }
+                else
+                {
+                    throw new InvalidCastException($"Cannot cast value at index {i} to type {typeof(T)}.");
+                }
+            }
+        }
+
     }
 }

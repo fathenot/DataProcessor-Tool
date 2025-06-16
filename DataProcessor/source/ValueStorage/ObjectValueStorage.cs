@@ -1,6 +1,4 @@
 ﻿using System.Collections;
-using System.Runtime.InteropServices;
-
 namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
@@ -13,17 +11,15 @@ namespace DataProcessor.source.ValueStorage
     internal class ObjectValueStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly object?[] objects;
-        GCHandle handle;
 
         internal ObjectValueStorage(object?[] objects)
         {
-            this.objects = objects;
-            handle = GCHandle.Alloc(objects, GCHandleType.Pinned);
+            this.objects = objects.Select(o => UniversalDeepCloner.DeepClone(o)).ToArray();
         }
 
         internal override nint GetNativeBufferPointer()
         {
-            return handle.AddrOfPinnedObject();
+            throw new NotImplementedException();
         }
 
         internal override object? GetValue(int index)
@@ -66,7 +62,7 @@ namespace DataProcessor.source.ValueStorage
         private class ObjectValueEnumerator : IEnumerator<object?>
         {
             private readonly object?[] data;
-            private int position = -1;
+            private int currentIndex = -1;
 
             public ObjectValueEnumerator(object?[] data)
             {
@@ -75,22 +71,22 @@ namespace DataProcessor.source.ValueStorage
 
             public bool MoveNext()
             {
-                position++;
-                return position < data.Length;
+                currentIndex++;
+                return currentIndex < data.Length;
             }
 
             public void Reset()
             {
-                position = -1;
+                currentIndex = -1;
             }
 
             public object? Current
             {
                 get
                 {
-                    if (position < 0 || position >= data.Length)
+                    if (currentIndex < 0 || currentIndex >= data.Length)
                         throw new InvalidOperationException();
-                    return data[position];
+                    return data[currentIndex];
                 }
             }
 

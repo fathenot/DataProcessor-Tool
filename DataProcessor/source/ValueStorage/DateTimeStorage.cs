@@ -1,10 +1,7 @@
-﻿using DataProcessor.source.ValueStorage;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.Runtime.InteropServices;
 
-namespace DataProcessor.Source.ValueStorage
+namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
     /// Provides storage for nullable <see cref="DateTime"/> values using internal tick representation for native interop.
@@ -68,15 +65,23 @@ namespace DataProcessor.Source.ValueStorage
 
             if (value is IConvertible convertible)
             {
-                _ticks[index] = Convert.ToDateTime(convertible).Ticks;
-                _nullMap.SetNull(index, false);
-                return;
+                try
+                {
+                    _ticks[index] = Convert.ToDateTime(convertible).Ticks;
+                    _nullMap.SetNull(index, false);
+                    return;
+                }
+                catch (Exception e)
+                {
+                    throw new ArgumentException("Value must be convertible to DateTime.");
+                }
+
             }
 
-            throw new InvalidCastException("Value must be of type DateTime or convertible to DateTime.");
+            throw new ArgumentException("Value must be of type DateTime or convertible to DateTime.");
         }
 
-       internal override IEnumerable<int> NullIndices
+        internal override IEnumerable<int> NullIndices
         {
             get
             {
@@ -88,7 +93,7 @@ namespace DataProcessor.Source.ValueStorage
             }
         }
 
-       internal override nint GetNativeBufferPointer()
+        internal override nint GetNativeBufferPointer()
         {
             EnsureNotDisposed();
             return _handle.AddrOfPinnedObject();
@@ -142,12 +147,12 @@ namespace DataProcessor.Source.ValueStorage
 
         private sealed class Enumerator : IEnumerator<object?>
         {
-            private DateTimeStorage storage;
-            private int _currentIndex;
+            private readonly DateTimeStorage storage;
+            private int _currentIndex = -1;
 
             public Enumerator(DateTimeStorage storage)
             {
-               this.storage = storage;
+                this.storage = storage;
             }
 
             public object? Current
@@ -156,7 +161,7 @@ namespace DataProcessor.Source.ValueStorage
                 {
                     if (_currentIndex < 0 || _currentIndex >= storage.Count)
                         throw new InvalidOperationException();
-                     return storage.GetValue(_currentIndex);
+                    return storage.GetValue(_currentIndex);
                 }
             }
 

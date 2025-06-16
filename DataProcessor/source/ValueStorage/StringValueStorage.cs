@@ -13,14 +13,24 @@ namespace DataProcessor.source.ValueStorage
     internal class StringStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly string?[] strings;
-        GCHandle handle;
 
+        private void ValidateIndex(int index)
+        {
+            if (index < 0 || index >= strings.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+            }
+        }
 
         // this is constructor
         internal StringStorage(string?[] strings)
         {
-            this.strings = strings;
-            handle = GCHandle.Alloc(strings, GCHandleType.Pinned);
+           this.strings = new string?[strings.Length];
+            for (int i = 0; i < strings.Length; i++)
+            {
+                this.strings[i] = strings[i]; // Copying the values, allowing nulls
+            }
+
         }
 
         /// <summary>
@@ -36,22 +46,24 @@ namespace DataProcessor.source.ValueStorage
 
         internal override nint GetNativeBufferPointer()
         {
-           return handle.AddrOfPinnedObject();
+          throw new NotSupportedException("StringStorage does not support native buffer pointer access.");
         }
         internal override object? GetValue(int index)
         {
+            ValidateIndex(index);
             return strings[index];
         }
         internal override void SetValue(int index, object? value)
         {
-            if(value == null)
+            if (index < 0 || index >= strings.Length)
             {
-                strings[index] = null;
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
             }
-            if(value is string stringValue)
+            if(value != null && !(value is string))
             {
-                strings[index] = stringValue;
+                throw new ArgumentException("Value must be a string or null.", nameof(value));
             }
+            strings[index] = (string?)value;
         }
 
         internal override int Count => strings.Length;
@@ -81,13 +93,6 @@ namespace DataProcessor.source.ValueStorage
             return GetEnumerator();
         }
 
-        ~StringStorage()
-        {
-            if (handle.IsAllocated)
-            {
-                handle.Free();
-            }
-        }
 
          
         private sealed class StringValueEnumerator : IEnumerator<object?>

@@ -63,6 +63,10 @@ namespace DataProcessor.source.ValueStorage
 
         internal override void SetValue(int index, object? value)
         {
+            if (index < 0 || index >= Count)
+            {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for storage with count {Count}.");
+            }
             if (value is char charValue)
             {
                 chars[index] = charValue;
@@ -75,7 +79,7 @@ namespace DataProcessor.source.ValueStorage
             }
             else
             {
-                throw new InvalidCastException($"Expected a value of type {typeof(char)} or null.");
+                throw new ArgumentException($"Expected a value of type {typeof(char)} or null.");
             }
 
         }

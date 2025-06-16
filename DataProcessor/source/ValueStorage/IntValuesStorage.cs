@@ -1,10 +1,10 @@
 ﻿using DataProcessor.source.ValueStorage;
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace DataProcessor.Source.ValueStorage
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("test")]
+namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
     /// Provides storage for nullable 64-bit integer values, with support for null tracking and native buffer access.
@@ -15,7 +15,7 @@ namespace DataProcessor.Source.ValueStorage
         private readonly NullBitMap _bitMap;
         private readonly GCHandle _handle;
 
-        public IntValuesStorage(long?[] values)
+        internal IntValuesStorage(long?[] values)
         {
             _intValues = new long[values.Length];
             _bitMap = new NullBitMap(values.Length);
@@ -51,12 +51,18 @@ namespace DataProcessor.Source.ValueStorage
 
             if (value is IConvertible convertible)
             {
-                _intValues[index] = Convert.ToInt64(convertible);
-                _bitMap.SetNull(index, false);
-                return;
+                try {
+                    _intValues[index] = Convert.ToInt64(convertible);
+                    _bitMap.SetNull(index, false);
+                    return;
+                }
+                catch(Exception e)
+                {
+                    throw new ArgumentException($"Cannot convert value to long: {e.Message}", e);
+                }
             }
 
-            throw new InvalidCastException("Value must be a numeric type or null.");
+            throw new ArgumentException("Value must be a numeric type or null.");
         }
 
         internal override nint GetNativeBufferPointer() => _handle.AddrOfPinnedObject();
@@ -65,7 +71,7 @@ namespace DataProcessor.Source.ValueStorage
 
         internal override Type ElementType => typeof(long);
 
-        public int CountNullValues => _bitMap.CountNulls();
+        internal int CountNullValues => _bitMap.CountNulls();
 
         internal override IEnumerable<int> NullIndices
         {
@@ -92,6 +98,11 @@ namespace DataProcessor.Source.ValueStorage
                 _handle.Free();
         }
 
+        /// <summary>
+        /// Validates whether the specified index is within the bounds of the internal collection.
+        /// </summary>
+        /// <param name="index">The index to validate. Must be greater than or equal to 0 and less than the length of the collection.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="index"/> is less than 0 or greater than or equal to the length of the collection.</exception>
         private void ValidateIndex(int index)
         {
             if (index < 0 || index >= _intValues.Length)
@@ -101,21 +112,21 @@ namespace DataProcessor.Source.ValueStorage
         private sealed class Enumerator : IEnumerator<object?>
         {
             private IntValuesStorage storage;
-            private int _currentIndex = -1;
+            private int currentIndex = -1;
 
             public Enumerator(IntValuesStorage storage)
             {
                this.storage = storage;
-                _currentIndex = -1;
+                currentIndex = -1;
             }
 
             public object? Current
             {
                 get
                 {
-                    if (_currentIndex < 0 || _currentIndex >= storage._intValues.Length)
+                    if (currentIndex < 0 || currentIndex >= storage._intValues.Length)
                         throw new InvalidOperationException("Enumerator is not positioned within the collection.");
-                    return storage.GetValue(_currentIndex);
+                    return storage.GetValue(currentIndex);
                 }
             }
 
@@ -123,13 +134,13 @@ namespace DataProcessor.Source.ValueStorage
 
             public bool MoveNext()
             {
-                _currentIndex++;
-                return _currentIndex < storage.Count;
+                currentIndex++;
+                return currentIndex < storage.Count;
             }
 
             public void Reset()
             {
-                _currentIndex = -1;
+                currentIndex = -1;
             }
 
             public void Dispose()
