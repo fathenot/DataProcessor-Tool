@@ -2,7 +2,8 @@
 using System.Linq;
 using System.Text;
 using System.IO;
-using DataProcessor.source.Non_Generics_Series;
+using DataProcessor.source.NonGenericsSeries;
+
 namespace DataProcessor.source.DataFrame
 {
     class DataFrame

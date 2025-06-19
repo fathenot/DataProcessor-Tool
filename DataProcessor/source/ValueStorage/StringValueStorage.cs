@@ -1,47 +1,74 @@
 ﻿using System.Runtime.InteropServices;
-
+using System;
+using System.Collections;
 namespace DataProcessor.source.ValueStorage
 {
-    internal class StringStorage : ValueStorage
+    /// <summary>
+    /// Provides storage for an array of nullable strings, with functionality to manage and access the data.
+    /// </summary>
+    /// <remarks>This class allows for efficient storage and manipulation of string values, including handling
+    /// null values. It provides methods to retrieve and set values by index, access the underlying native buffer
+    /// pointer, and  enumerate indices of null values. The storage is pinned in memory to ensure compatibility with
+    /// native operations.</remarks>
+    internal class StringStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly string?[] strings;
-        GCHandle handle;
 
-        internal StringStorage(string?[] strings)
+        private void ValidateIndex(int index)
         {
-            this.strings = strings;
-            handle = GCHandle.Alloc(strings, GCHandleType.Pinned);
+            if (index < 0 || index >= strings.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+            }
         }
 
-        public string?[] Strings
+        // this is constructor
+        internal StringStorage(string?[] strings)
+        {
+           this.strings = new string?[strings.Length];
+            for (int i = 0; i < strings.Length; i++)
+            {
+                this.strings[i] = strings[i]; // Copying the values, allowing nulls
+            }
+
+        }
+
+        /// <summary>
+        /// Gets an array of strings.
+        /// </summary>
+        internal string?[] Strings
         {
             get { return strings; }
         }
-        public GCHandle Handle { get { return handle; } }
 
-        public override nint GetArrayAddress()
+        
+        internal override Type ElementType => typeof(string);
+
+        internal override nint GetNativeBufferPointer()
         {
-           return handle.AddrOfPinnedObject();
+          throw new NotSupportedException("StringStorage does not support native buffer pointer access.");
         }
-        public override object? GetValue(int index)
+        internal override object? GetValue(int index)
         {
+            ValidateIndex(index);
             return strings[index];
         }
-        public override void SetValue(int index, object? value)
+        internal override void SetValue(int index, object? value)
         {
-            if(value == null)
+            if (index < 0 || index >= strings.Length)
             {
-                strings[index] = null;
+                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
             }
-            if(value is string stringValue)
+            if(value != null && !(value is string))
             {
-                strings[index] = stringValue;
+                throw new ArgumentException("Value must be a string or null.", nameof(value));
             }
+            strings[index] = (string?)value;
         }
 
-        public override int Length => strings.Length;
+        internal override int Count => strings.Length;
 
-        public override IEnumerable<int> NullPositions
+        internal override IEnumerable<int> NullIndices
         {
             get
             {
@@ -56,6 +83,48 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override Type ValueType => typeof(string);
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            return new StringValueEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+
+         
+        private sealed class StringValueEnumerator : IEnumerator<object?>
+        {
+            private readonly StringStorage storage;
+            private int currentIndex = -1;
+            public StringValueEnumerator(StringStorage storage)
+            {
+                this.storage = storage;
+            }
+            public object? Current
+            {
+                get
+                {
+                    if (currentIndex < 0 || currentIndex >= storage.Count)
+                    {
+                        throw new InvalidOperationException("Enumerator is not positioned within the collection.");
+                    }
+                    return storage.GetValue(currentIndex);
+                }
+            }
+            object? IEnumerator.Current => Current;
+            public void Dispose() { }
+            public bool MoveNext()
+            {
+                currentIndex++;
+                return currentIndex < storage.Count;
+            }
+            public void Reset()
+            {
+                currentIndex = -1;
+            }
+        }
     }
 }

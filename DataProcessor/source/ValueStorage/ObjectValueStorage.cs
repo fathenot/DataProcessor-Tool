@@ -1,40 +1,39 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using System.Collections;
 namespace DataProcessor.source.ValueStorage
 {
-    internal class ObjectValueStorage: ValueStorage
+    /// <summary>
+    /// Provides storage for an array of objects, allowing access to individual elements and their native buffer
+    /// pointer.
+    /// </summary>
+    /// <remarks>This class is designed to manage an array of objects, offering functionality to retrieve and
+    /// modify values, determine the count of elements, and identify indices of null values. It also provides access to
+    /// the native memory buffer associated with the stored objects.</remarks>
+    internal class ObjectValueStorage : AbstractValueStorage, IEnumerable<object?>
     {
         private readonly object?[] objects;
-        GCHandle handle;
 
         internal ObjectValueStorage(object?[] objects)
         {
-            this.objects = objects;
-            handle = GCHandle.Alloc(objects, GCHandleType.Pinned);
+            this.objects = objects.Select(o => UniversalDeepCloner.DeepClone(o)).ToArray();
         }
 
-        public override nint GetArrayAddress()
+        internal override nint GetNativeBufferPointer()
         {
-            return handle.AddrOfPinnedObject();
+            throw new NotImplementedException();
         }
 
-        public override object? GetValue(int index)
+        internal override object? GetValue(int index)
         {
             return objects[index];
         }
 
-        public override void SetValue(int index, object? value)
+        internal override void SetValue(int index, object? value)
         {
             objects[index] = value;
         }
 
-        public override int Length => objects.Length;
-        public override IEnumerable<int> NullPositions
+        internal override int Count => objects.Length;
+        internal override IEnumerable<int> NullIndices
         {
             get
             {
@@ -48,6 +47,55 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        public override Type ValueType => typeof(object);
+        internal override Type ElementType => typeof(object);
+
+        public override IEnumerator<object?> GetEnumerator()
+        {
+            return new ObjectValueEnumerator(objects);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return this.GetEnumerator();
+        }
+
+        private class ObjectValueEnumerator : IEnumerator<object?>
+        {
+            private readonly object?[] data;
+            private int currentIndex = -1;
+
+            public ObjectValueEnumerator(object?[] data)
+            {
+                this.data = data;
+            }
+
+            public bool MoveNext()
+            {
+                currentIndex++;
+                return currentIndex < data.Length;
+            }
+
+            public void Reset()
+            {
+                currentIndex = -1;
+            }
+
+            public object? Current
+            {
+                get
+                {
+                    if (currentIndex < 0 || currentIndex >= data.Length)
+                        throw new InvalidOperationException();
+                    return data[currentIndex];
+                }
+            }
+
+            object? IEnumerator.Current => this.Current;
+
+            public void Dispose()
+            {
+                // No unmanaged resources to clean up in this case.
+            }
+        }
     }
 }

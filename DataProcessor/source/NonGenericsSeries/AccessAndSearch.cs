@@ -74,7 +74,7 @@ namespace DataProcessor.source.NonGenericsSeries
             List<int> Indexes = new List<int>();
             for (int i = 0; i < this.Count; i++)
             {
-                if (Equals(this[i], item)) { Indexes.Add(i); }
+                if (Equals(values[i], item)) { Indexes.Add(i); }
             }
             return Indexes;
         }

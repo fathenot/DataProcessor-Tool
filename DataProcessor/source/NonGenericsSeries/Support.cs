@@ -8,6 +8,12 @@ namespace DataProcessor.source.NonGenericsSeries
 {
     internal static class Support
     {
+        internal static bool isNumericsType(Type type)
+        {
+            ArgumentNullException.ThrowIfNull(type, "type");
+            Type? sampleValue = default;
+            return IsNumerics(sampleValue);
+        }
         internal static bool IsNumerics(object? value)
         {
             return value is sbyte || value is byte || value is short

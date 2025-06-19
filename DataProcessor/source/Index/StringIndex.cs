@@ -13,43 +13,30 @@ namespace DataProcessor.source.Index
         private Dictionary<string, List<int>> stringIndexMap;
 
         // private method
-        private void RebuildMap()
-        {
-            indexMap.Clear();
-            for (int i = 0; i <stringIndexes.Count; i++)
-            {
-                string key = stringIndexes[i];
-                if (!indexMap.ContainsKey(key))
-                    indexMap[key] = new List<int>();
-                indexMap[key].Add(i);
-            }
-        }
+
+        private static string NormalizeUnicode(string s)
+    => s.Normalize(NormalizationForm.FormC); // chuẩn hóa tổ hợp glyph
+
 
         public StringIndex(List<string> stringIndexes) : base(stringIndexes.Cast<object>().ToList())
         {
-            this.stringIndexes = stringIndexes;
+            this.stringIndexes = new List<string>(stringIndexes.Count);
             stringIndexMap = new Dictionary<string, List<int>>();
             for (int i = 0; i < stringIndexes.Count; i++)
             {
-                if (!stringIndexMap.ContainsKey(stringIndexes[i]))
+                var normalizedString = NormalizeUnicode(stringIndexes[i]);
+                stringIndexes[i] = normalizedString;
+                if (!stringIndexMap.ContainsKey(normalizedString))
                 {
-                    stringIndexMap[stringIndexes[i]] = new List<int>();
+                    stringIndexMap[normalizedString] = new List<int>();
                 }
-                stringIndexMap[stringIndexes[i]].Add(i);
+                stringIndexMap[normalizedString].Add(i);
             }
         }
 
-        protected void Add(string index)
-        {
-            stringIndexes.Add(index);
-            base.Add(index);
-            if (!stringIndexMap.ContainsKey(index))
-            {
-                stringIndexMap[index] = new List<int>();
-            }
-            stringIndexMap[index].Add(Count - 1);
-        }
+        public override int Count => stringIndexes.Count;
 
+        public override IReadOnlyList<object> IndexList => stringIndexes.Cast<object>().ToList().AsReadOnly();
         public override IIndex Slice(int start, int end, int step = 1)
         {
             List<string> slicedIndex = new List<string>();
@@ -75,37 +62,46 @@ namespace DataProcessor.source.Index
             return new StringIndex(slicedIndex);
         }
 
-        protected override void Add(object key)
+        public override bool Contains(object key)
         {
-            base.Add(key);
-            this.Add((string) key);
-        }
-
-        protected override void Drop(object key)
-        {
-            if (key is not string stringKey || !indexMap.ContainsKey(stringKey))
-                return;
-
-            var positions = indexMap[stringKey];
-            foreach (var pos in positions.OrderByDescending(p => p))
+            if(key is string strKey)
             {
-                indexList.RemoveAt(pos);
+                var tmp = NormalizeUnicode(strKey);
+                return stringIndexMap.ContainsKey(tmp);
             }
-
-            indexMap.Remove(stringKey);
-
-            // Cập nhật lại indexMap vì vị trí các phần tử phía sau đã thay đổi
-            RebuildMap();
+            throw new ArgumentException($"{nameof(key)} must be string.");
         }
 
+        public override int FirstPositionOf(object key)
+        {
+            if (key is string strKey)
+            {
+                var tmp = NormalizeUnicode(strKey);
+                return stringIndexMap[tmp][0];
+            }
+            throw new ArgumentException($"{nameof(key)} must be string.");
+        }
         public override object GetIndex(int idx)
         {
             return stringIndexes[idx];
         }
 
-        public override IReadOnlyList<int> GetIndexPosition(object index)
+        public override IList<int> GetIndexPosition(object index)
         {
-            return stringIndexMap[(string)index];
+            return new List<int> (stringIndexMap[(string)index]);
+        }
+
+        public override IEnumerable<object> DistinctIndices()
+        {
+           return stringIndexes.Distinct();
+        }
+
+        public override IEnumerator<object> GetEnumerator()
+        {
+            foreach (string index in stringIndexes)
+            {
+                yield return index;
+            }
         }
     }
 }

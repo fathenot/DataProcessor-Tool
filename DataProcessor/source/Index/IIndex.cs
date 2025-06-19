@@ -1,94 +1,84 @@
-﻿namespace DataProcessor.source.Index
+﻿using System;
+using System.Collections.Generic;
+
+namespace DataProcessor.source.Index
 {
+    /// <summary>
+    /// Represents an abstract base class for indexing functionality in a DataFrame-like structure.
+    /// Supports lookup, slicing, and metadata about the index.
+    /// </summary>
     public abstract class IIndex
     {
-        protected readonly List<object> indexList;
-        protected readonly Dictionary<object, List<int>> indexMap;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IIndex"/> class.
+        /// This constructor is reserved for internal use by derived classes.
+        /// </summary>
+        protected IIndex() { }
 
-        protected IIndex()
-        {
-            indexList = new List<object>();
-            indexMap = new Dictionary<object, List<int>>();
-        }
-        protected IIndex(List<object> indexList)
-        {
-            this.indexList = indexList;
-            indexMap = new Dictionary<object, List<int>>();
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IIndex"/> class using a list of index values.
+        /// This constructor is optional and may be used by subclasses for convenience.
+        /// </summary>
+        /// <param name="indexList">The list of index values.</param>
+        protected IIndex(List<object> indexList) { }
 
-            // Xây dựng dictionary ánh xạ giữa index và các vị trí
-            for (int i = 0; i < indexList.Count; i++)
-            {
-                var key = indexList[i];
-                if (!indexMap.TryGetValue(key, out var positions))
-                {
-                    positions = new List<int>();
-                    indexMap[key] = positions;
-                }
-                positions.Add(i);
-            }
-        }
+        /// <summary>
+        /// Gets the number of elements in the index.
+        /// </summary>
+        public abstract int Count { get; }
 
-        protected virtual void Drop(object key)
-        {
-            if (!indexMap.ContainsKey(key))
-                return;
+        /// <summary>
+        /// Gets the full list of index values as an immutable list.
+        /// </summary>
+        public abstract IReadOnlyList<object> IndexList { get; }
 
-            var positions = indexMap[key];
+        /// <summary>
+        /// Retrieves the index value at the specified position.
+        /// </summary>
+        /// <param name="idx">The zero-based position in the index.</param>
+        /// <returns>The index value at the specified position.</returns>
+        public abstract object GetIndex(int idx);
 
-            // Xóa tất cả vị trí khớp trong indexList
-            foreach (var pos in positions.OrderByDescending(p => p))
-            {
-                indexList.RemoveAt(pos);
-            }
+        /// <summary>
+        /// Gets all positions in the index that match the specified value.
+        /// </summary>
+        /// <param name="index">The value to locate in the index.</param>
+        /// <returns>A list of positions where the value occurs.</returns>
+        public abstract IList<int> GetIndexPosition(object index);
 
-            // Xóa luôn ánh xạ key
-            indexMap.Remove(key);
-        }
+        /// <summary>
+        /// Determines whether the index contains the specified key.
+        /// </summary>
+        /// <param name="key">The key to check for existence.</param>
+        /// <returns><c>true</c> if the key exists; otherwise, <c>false</c>.</returns>
+        public abstract bool Contains(object key);
 
-        public virtual object GetIndex(int idx)
-        {
-            return indexList[idx];
-        }
+        /// <summary>
+        /// Gets the first position of the specified key in the index.
+        /// </summary>
+        /// <param name="key">The key to locate.</param>
+        /// <returns>The zero-based position of the first occurrence, or -1 if not found.</returns>
+        public abstract int FirstPositionOf(object key);
 
-        public virtual IReadOnlyList<int> GetIndexPosition(object index)
-        {
-            if (indexMap.ContainsKey(index))
-            {
-                return indexMap[index];
-            }
-            throw new KeyNotFoundException($"Index {index} not found");
-        }
-
-        protected virtual void Add(object key)
-        {
-            int pos = indexList.Count;
-            indexList.Add(key);
-
-            if (!indexMap.TryGetValue(key, out var positions))
-            {
-                positions = new List<int>();
-                indexMap[key] = positions;
-            }
-            positions.Add(pos);
-        }
-
-
-        public int Count => indexList.Count;
-        protected IReadOnlyList<object> IndexList => indexList;
-
+        /// <summary>
+        /// Creates a new index that represents a slice of the current index.
+        /// </summary>
+        /// <param name="start">The starting position (inclusive).</param>
+        /// <param name="end">The ending position (exclusive).</param>
+        /// <param name="step">The step between elements (default is 1).</param>
+        /// <returns>A new <see cref="IIndex"/> containing the sliced values.</returns>
         public abstract IIndex Slice(int start, int end, int step = 1);
 
-        public bool Contains(object key) => indexMap.ContainsKey(key);
+        /// <summary>
+        /// Gets all distinct index values in the current index.
+        /// </summary>
+        /// <returns>An enumerable of distinct index values.</returns>
+        public abstract IEnumerable<object> DistinctIndices();
 
-        public int FirstPositionOf(object key) =>
-            indexMap.TryGetValue(key, out var list) && list.Count > 0
-                ? list[0]
-                : throw new KeyNotFoundException($"Index {key} not found");
-
-        public IEnumerable<object> DistinctIndices() => indexMap.Keys;
-
-        public IEnumerator<object> GetEnumerator() => indexList.GetEnumerator();
-
+        /// <summary>
+        /// Returns an enumerator that iterates through the index values.
+        /// </summary>
+        /// <returns>An enumerator for the index.</returns>
+        public abstract IEnumerator<object> GetEnumerator();
     }
-
 }
