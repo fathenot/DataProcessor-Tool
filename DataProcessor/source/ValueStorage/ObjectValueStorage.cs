@@ -12,9 +12,30 @@ namespace DataProcessor.source.ValueStorage
     {
         private readonly object?[] objects;
 
-        internal ObjectValueStorage(object?[] objects)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ObjectValueStorage"/> class with the specified array of
+        /// objects.
+        /// </summary>
+        /// <remarks>When <paramref name="copy"/> is <see langword="false"/>, the input array is stored
+        /// directly without cloning. This can lead to unintended side effects if the array contains mutable objects
+        /// that are modified after being passed to this constructor. Use this option with caution.</remarks>
+        /// <param name="objects">An array of objects to be stored. The array can contain null values.</param>
+        /// <param name="copy">A boolean value indicating whether the objects in the array should be deep-cloned. If <see
+        /// langword="true"/>, each object in the array is deep-cloned before being stored. If <see langword="false"/>,
+        /// the input array is stored as-is, which assumes the caller has ensured the array is safe to use.</param>
+        internal ObjectValueStorage(object?[] objects, bool copy = true)
         {
-            this.objects = objects.Select(o => UniversalDeepCloner.DeepClone(o)).ToArray();
+            if(copy)
+            {
+                this.objects = objects.Select(o => UniversalDeepCloner.DeepClone(o)).ToArray();
+            }
+            else
+            {
+                // If not copying, we assume the input array is already cloned or does not require cloning.
+                // This is a risky operation if the input array contains mutable objects.
+                // Use with caution.
+                this.objects = objects;
+            }
         }
 
         internal override nint GetNativeBufferPointer()

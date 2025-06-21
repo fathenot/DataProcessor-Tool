@@ -4,10 +4,10 @@
     /// Represents a bitmap to track null states for a collection of elements.
     /// Each bit in the bitmap corresponds to the null state of an element.
     /// </summary>
-    internal class NullBitMap
+    internal struct NullBitMap
     {
         // List of 32-bit unsigned integers, each representing 32 bits of null flags.
-        private List<uint> chunks;
+        private uint[] chunks;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NullBitMap"/> class
@@ -16,12 +16,14 @@
         /// <param name="totalItems">The total number of elements to track.</param>
         internal NullBitMap(int totalItems)
         {
-            chunks = new List<uint>();
             int numChunks = (totalItems + 31) / 32;  // Calculate number of 32-bit chunks needed
+            chunks = new uint[numChunks];  // Initialize chunks with zeros
+
             for (int i = 0; i < numChunks; i++)
             {
-                chunks.Add(0);  // Initialize each chunk with all bits set to 0 (not null)
+                chunks[i] = 0;  // Ensure all bits are initially cleared (not null)
             }
+
         }
 
         /// <summary>
@@ -103,8 +105,11 @@
         /// <returns>A new <see cref="NullBitMap"/> instance with the same chunk data.</returns>
         internal NullBitMap Clone()
         {
-            var clone = new NullBitMap(0);
-            clone.chunks.AddRange(this.chunks);
+            var clone = new NullBitMap(chunks.Length);
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                clone.chunks[i] = chunks[i]; // Copy each chunk to the new instance
+            }
             return clone;
         }
     }

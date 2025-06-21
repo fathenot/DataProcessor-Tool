@@ -9,12 +9,22 @@ namespace DataProcessor.source.ValueStorage
     /// <summary>
     /// Provides storage for nullable 64-bit integer values, with support for null tracking and native buffer access.
     /// </summary>
-    internal class IntValuesStorage :AbstractValueStorage, IEnumerable<object?>
+    internal class IntValuesStorage :AbstractValueStorage, IEnumerable<object?>, IDisposable
     {
         private readonly long[] _intValues;
         private readonly NullBitMap _bitMap;
         private readonly GCHandle _handle;
+        bool disposed = false;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntValuesStorage"/> class, storing a collection of nullable
+        /// integers and tracking their nullability using a bitmap.
+        /// </summary>
+        /// <remarks>This constructor initializes the internal storage for integer values and a bitmap to
+        /// track which elements are null. The provided array is processed such that non-null values are stored in an
+        /// internal array, and null values are recorded in the bitmap. The internal array is pinned in memory to ensure
+        /// it remains accessible for unmanaged operations.</remarks>
+        /// <param name="values">An array of nullable integers to be stored. Each element represents a value or a null entry.</param>
         internal IntValuesStorage(long?[] values)
         {
             _intValues = new long[values.Length];
@@ -31,7 +41,34 @@ namespace DataProcessor.source.ValueStorage
 
             _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
         }
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntValuesStorage"/> class with the specified values.
+        /// </summary>
+        /// <remarks>If <paramref name="copy"/> is <see langword="false"/>, the caller must ensure that
+        /// the <paramref name="values"/> array is not modified externally after being passed to this constructor, as
+        /// the instance will directly reference it. The constructor also initializes a bitmap to track nullability,
+        /// marking all values as non-null.</remarks>
+        /// <param name="values">An array of <see langword="long"/> values to be stored. This array must not be <see langword="null"/>.</param>
+        /// <param name="copy">A <see langword="bool"/> indicating whether to create a copy of the <paramref name="values"/> array. If <see
+        /// langword="true"/>, the values are copied into a new array; otherwise, the provided array is used directly.</param>
+        internal IntValuesStorage(long[] values, bool copy = false)
+        {
+            if (copy)
+            {
+                _intValues = new long[values.Length];
+                Array.Copy(values, _intValues, values.Length);
+            }
+            else
+            {
+                _intValues = values;
+            }
+            _bitMap = new NullBitMap(values.Length);
+            for (int i = 0; i < values.Length; i++)
+            {
+                _bitMap.SetNull(i, false);
+            }
+            _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
+        }
         internal override object? GetValue(int index)
         {
             ValidateIndex(index);
@@ -92,6 +129,25 @@ namespace DataProcessor.source.ValueStorage
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        // this part used to use IDisposable, but now we use the Dispose pattern
+
+        public void Dispose()
+        {
+            if (_handle.IsAllocated)
+                _handle.Free();
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                if (_handle.IsAllocated)
+                    _handle.Free();
+
+                disposed = true;
+            }
+        }
         ~IntValuesStorage()
         {
             if (_handle.IsAllocated)

@@ -35,6 +35,24 @@ namespace DataProcessor.source.ValueStorage
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
+        public DateTimeStorage(DateTime[] dateTimes, bool copy = true)
+        {
+            if (copy)
+            {
+                _ticks = new long[dateTimes.Length];
+                Array.Copy(dateTimes, _ticks, dateTimes.Length);
+            }
+            else
+            {
+                _ticks = dateTimes.Select(dt => dt.Ticks).ToArray();
+            }
+            _nullMap = new NullBitMap(dateTimes.Length);
+            for (int i = 0; i < dateTimes.Length; i++)
+            {
+                _nullMap.SetNull(i, false);
+            }
+            _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
+        }
         internal override int Count => _ticks.Length;
 
         internal override Type ElementType => typeof(DateTime);
@@ -63,19 +81,31 @@ namespace DataProcessor.source.ValueStorage
                 return;
             }
 
+            if (value is string s)
+            {
+                if (DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+                                      System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+                {
+                    _ticks[index] = parsed.Ticks;
+                    _nullMap.SetNull(index, false);
+                    return;
+                }
+
+                throw new ArgumentException("String value must be a valid ISO 8601 DateTime.");
+            }
+
             if (value is IConvertible convertible)
             {
                 try
                 {
-                    _ticks[index] = Convert.ToDateTime(convertible).Ticks;
+                    _ticks[index] = Convert.ToDateTime(convertible, System.Globalization.CultureInfo.InvariantCulture).Ticks;
                     _nullMap.SetNull(index, false);
                     return;
                 }
-                catch (Exception e)
+                catch
                 {
                     throw new ArgumentException("Value must be convertible to DateTime.");
                 }
-
             }
 
             throw new ArgumentException("Value must be of type DateTime or convertible to DateTime.");

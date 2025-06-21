@@ -24,6 +24,16 @@ namespace DataProcessor.source.ValueStorage
                 throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
             }
         }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DoubleValueStorage"/> class,  storing an array of nullable
+        /// double values and tracking null entries.
+        /// </summary>
+        /// <remarks>This constructor processes the input array by converting non-null values to  <see
+        /// cref="double"/> and storing them in an internal array. Null values are  represented using a null bitmap for
+        /// efficient tracking. The input array is  pinned in memory using a <see cref="GCHandle"/> to ensure it remains
+        /// fixed  during the lifetime of the instance.</remarks>
+        /// <param name="array">An array of nullable <see cref="double"/> values to be stored.  Each null value in the input array is
+        /// tracked using a null bitmap.</param>
         internal DoubleValueStorage(double?[] array)
         {
             this.array = new double[array.Length];
@@ -44,6 +54,35 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DoubleValueStorage"/> class,  which provides storage for an
+        /// array of double values with optional copying behavior.
+        /// </summary>
+        /// <remarks>If <paramref name="copy"/> is <see langword="false"/>, any modifications to the
+        /// provided array  will directly affect the storage. If <paramref name="copy"/> is <see langword="true"/>,  the
+        /// storage maintains its own independent copy of the array.</remarks>
+        /// <param name="array">The array of double values to be stored. This array must not be null.</param>
+        /// <param name="copy">A boolean value indicating whether the provided array should be copied.  If <see langword="true"/>, the
+        /// array is copied to a new internal array.  If <see langword="false"/>, the provided array is used directly.
+        /// The default is <see langword="true"/>.</param>
+        internal DoubleValueStorage(double[] array, bool copy = true)
+        {
+            if (copy)
+            {
+                this.array = new double[array.Length];
+                Array.Copy(array, this.array, array.Length);
+            }
+            else
+            {
+                this.array = array;
+            }
+            nullBitMap = new NullBitMap(array.Length);
+            for (int i = 0; i < array.Length; i++)
+            {
+                nullBitMap.SetNull(i, false);
+            }
+            handle = GCHandle.Alloc(this.array, GCHandleType.Pinned);
+        }
         internal override Type ElementType => typeof(double);
 
         internal override int Count => array.Length;

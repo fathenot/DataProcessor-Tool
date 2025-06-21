@@ -24,6 +24,15 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DecimalStorage"/> class, storing a collection of  nullable
+        /// decimal values and tracking their null states.
+        /// </summary>
+        /// <remarks>This constructor processes the input array to separate null values from non-null
+        /// values.  Null values are represented in the internal storage as the default value for <see cref="decimal"/> 
+        /// and are tracked using a <see cref="NullBitMap"/>. The input array is pinned in memory using  <see
+        /// cref="GCHandle"/> to ensure it remains accessible during the lifetime of the storage.</remarks>
+        /// <param name="decimals">An array of nullable decimal values to be stored. Null values are tracked using a null bitmap.</param>
         internal DecimalStorage(decimal?[] decimals)
         {
             this.decimals = new decimal[decimals.Length];
@@ -42,6 +51,35 @@ namespace DataProcessor.source.ValueStorage
                     nullBitMap.SetNull(i, false);
                 }
             }
+        }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DecimalStorage"/> class, which manages an array of decimal
+        /// values with optional copying and nullability tracking.
+        /// </summary>
+        /// <remarks>This class provides storage for decimal values with support for nullability tracking
+        /// through an internal bitmap. The array is pinned in memory to prevent it from being moved by the garbage
+        /// collector.</remarks>
+        /// <param name="decimals">The array of decimal values to be managed. Cannot be null.</param>
+        /// <param name="copy">A boolean value indicating whether to create a copy of the provided <paramref name="decimals"/> array. If
+        /// <see langword="true"/>, the array is copied; otherwise, the provided array is used directly.</param>
+
+        internal DecimalStorage(decimal[] decimals, bool copy = true)
+        {
+            if (copy)
+            {
+                this.decimals = new decimal[decimals.Length];
+                Array.Copy(decimals, this.decimals, decimals.Length);
+            }
+            else
+            {
+                this.decimals = decimals;
+            }
+            nullBitMap = new NullBitMap(decimals.Length);
+            for (int i = 0; i < decimals.Length; i++)
+            {
+                nullBitMap.SetNull(i, false); // Initially set all to not null
+            }
+            handle = GCHandle.Alloc(this.decimals, GCHandleType.Pinned);
         }
         internal override nint GetNativeBufferPointer()
         {
@@ -96,6 +134,13 @@ namespace DataProcessor.source.ValueStorage
             return GetEnumerator();
         }
 
+        ~DecimalStorage()
+        {
+            if (handle.IsAllocated)
+            {
+                handle.Free(); // Free the pinned handle to prevent memory leaks
+            }
+        }
         private sealed class DecimalValueEnumerator : IEnumerator<object?>
         {
             DecimalStorage storage;
