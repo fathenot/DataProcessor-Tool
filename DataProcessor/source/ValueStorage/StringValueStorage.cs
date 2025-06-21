@@ -1,6 +1,6 @@
-﻿using System.Runtime.InteropServices;
-using System;
-using System.Collections;
+﻿using System.Collections;
+using System.Text;
+using DataProcessor.source;
 namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
@@ -23,15 +23,40 @@ namespace DataProcessor.source.ValueStorage
         }
 
         // this is constructor
-        internal StringStorage(string?[] strings)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="StringStorage"/> class with the specified array of strings.
+        /// </summary>
+        /// <remarks>If <paramref name="copy"/> is <see langword="false"/>, the input array is directly
+        /// referenced, and any modifications to the input array after the constructor call will affect the stored data.
+        /// If <paramref name="copy"/> is <see langword="true"/>, the input array is not modified. The normalization
+        /// behavior is determined by the <see cref="UserSettings.NormalizeUnicode"/> property and the normalization
+        /// form specified in <see cref="UserSettings.DefaultNormalizationForm"/>.</remarks>
+        /// <param name="strings">An array of strings to be stored. The array can contain null values.</param>
+        /// <param name="copy">A boolean value indicating whether to create a copy of the input array. If <see langword="true"/>, a new
+        /// array is created and populated with the normalized or original strings. If <see langword="false"/>, the
+        /// input array is used directly, and its elements are normalized in place if normalization is enabled.</param>
+        internal StringStorage(string?[] strings, bool copy = true)
         {
-           this.strings = new string?[strings.Length];
-            for (int i = 0; i < strings.Length; i++)
+            if(!copy)
             {
-                this.strings[i] = strings[i]; // Copying the values, allowing nulls
+                this.strings = strings;
+                for (int i = 0; i < strings.Length; i++)
+                {
+                    this.strings[i] = UserSettings.NormalizeUnicode ? strings[i]?.Normalize(UserSettings.DefaultNormalizationForm) : strings[i];
+                }
             }
-
+            else
+            {
+                this.strings = new string?[strings.Length];
+                for (int i = 0; i < strings.Length; i++)
+                {
+                    string? s = strings[i];
+                    this.strings[i] = UserSettings.NormalizeUnicode ? s?.Normalize(UserSettings.DefaultNormalizationForm) : s;
+                }
+            }
+           
         }
+
 
         /// <summary>
         /// Gets an array of strings.
@@ -41,12 +66,12 @@ namespace DataProcessor.source.ValueStorage
             get { return strings; }
         }
 
-        
+
         internal override Type ElementType => typeof(string);
 
         internal override nint GetNativeBufferPointer()
         {
-          throw new NotSupportedException("StringStorage does not support native buffer pointer access.");
+            throw new NotSupportedException("StringStorage does not support native buffer pointer access.");
         }
         internal override object? GetValue(int index)
         {
@@ -59,11 +84,11 @@ namespace DataProcessor.source.ValueStorage
             {
                 throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
             }
-            if(value != null && !(value is string))
+            if (value != null && !(value is string))
             {
                 throw new ArgumentException("Value must be a string or null.", nameof(value));
             }
-            strings[index] = (string?)value;
+            strings[index] = ((string?)value)?.Normalize(NormalizationForm.FormC);
         }
 
         internal override int Count => strings.Length;
@@ -94,7 +119,7 @@ namespace DataProcessor.source.ValueStorage
         }
 
 
-         
+
         private sealed class StringValueEnumerator : IEnumerator<object?>
         {
             private readonly StringStorage storage;
