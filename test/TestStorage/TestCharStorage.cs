@@ -5,14 +5,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using DataProcessor.source.ValueStorage;
-namespace test
+namespace test.TestStorage
 {
     public class TestCharStorage
     {
         [Fact]
         public void TestCharStorageWithNulls()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { null, 'a', null, 'b' });
+            var charStorage = new CharStorage(new char?[] { null, 'a', null, 'b' });
             Assert.Equal(4, charStorage.Count);
             Assert.True(charStorage.NullIndices.SequenceEqual(new[] { 0, 2 }));
             Assert.Null(charStorage.GetValue(0));
@@ -24,7 +24,7 @@ namespace test
         [Fact]
         public void TestCharStorageWithAllNulls()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { null, null, null });
+            var charStorage = new CharStorage(new char?[] { null, null, null });
             Assert.Equal(3, charStorage.Count);
             Assert.True(charStorage.NullIndices.SequenceEqual(new[] { 0, 1, 2 }));
             Assert.Null(charStorage.GetValue(0));
@@ -35,7 +35,7 @@ namespace test
         [Fact]
         public void TestCharStorageWithEmptyArray()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { });
+            var charStorage = new CharStorage(new char?[] { });
             Assert.Equal(0, charStorage.Count);
             Assert.Empty(charStorage.NullIndices);
         }
@@ -43,7 +43,7 @@ namespace test
         [Fact]
         public void TestCharStorageSetValue()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { null, null });
+            var charStorage = new CharStorage(new char?[] { null, null });
             charStorage.SetValue(0, 'c');
             charStorage.SetValue(1, 'd');
             Assert.Equal('c', charStorage.GetValue(0));
@@ -55,7 +55,7 @@ namespace test
         [Fact]
         public void TestApplyLinq()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { 'x', null, 'y' });
+            var charStorage = new CharStorage(new char?[] { 'x', null, 'y' });
             var result = charStorage.AsTyped<char?>().Where(c => c.HasValue).Select(c => c.Value.ToString()).ToList();
             Assert.Equal(2, result.Count);
             Assert.Contains("x", result);
@@ -65,7 +65,7 @@ namespace test
         [Fact]
         public void TestEnumerator()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { 'a', 'b', null, 'c' });
+            var charStorage = new CharStorage(new char?[] { 'a', 'b', null, 'c' });
             var enumerator = charStorage.GetEnumerator();
             int count = 0;
             while (enumerator.MoveNext())
@@ -94,7 +94,7 @@ namespace test
         [Fact]
         public void TestAsTyped()
         {
-            var charStorage = new DataProcessor.source.ValueStorage.CharStorage(new char?[] { 'a', 'b', null, 'c' });
+            var charStorage = new CharStorage(new char?[] { 'a', 'b', null, 'c' });
             var typedList = charStorage.AsTyped<char?>().ToList();
             Assert.Equal(4, typedList.Count);
             Assert.Contains('a', typedList);

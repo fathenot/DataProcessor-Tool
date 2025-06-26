@@ -1,4 +1,4 @@
-﻿namespace test
+﻿namespace test.TestStorage
 {
     public class TestStringStorage
     {
@@ -78,7 +78,7 @@
                 "😀", "💩", "A\u030A", "Å", "مرحبا", "שלום", "សួស្តី", "வணக்கம்"
             };
 
-            var storage = new DataProcessor.source.ValueStorage.StringStorage(inputs);
+            var storage = new DataProcessor.source.ValueStorage.StringStorage(inputs, false);
 
             // Kiểm tra count
             Assert.Equal(inputs.Length, storage.Count);
@@ -148,6 +148,16 @@
             Assert.Contains("APPLE", result);
             Assert.Contains("BANANA", result);
             Assert.Contains("CHERRY", result);
+        }
+
+        [Fact]
+        public void TestCultureInvariantNormalization()
+        {
+            var storage = new DataProcessor.source.ValueStorage.StringStorage(new string?[] { "A\u030A", "Å" });
+            Assert.Equal("A\u030A", storage.GetValue(0));
+            Assert.Equal("Å", storage.GetValue(1));
+            // Kiểm tra xem chúng có được coi là bằng nhau không
+            Assert.Equal(storage.GetValue(0), storage.GetValue(1));
         }
 
         [Fact]

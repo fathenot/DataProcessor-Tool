@@ -1,17 +1,18 @@
-﻿using System;
+﻿using DataProcessor.source.ValueStorage;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace test
+namespace test.TestStorage
 {
     public class TestDateTimeStorage
     {
         [Fact]
         public void TestDateTimeStorageWithNulls()
         {
-            var dateTimeStorage = new DataProcessor.source.ValueStorage.DateTimeStorage(new DateTime?[] { null, DateTime.Now, null, DateTime.UtcNow });
+            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { null, DateTime.Now, null, DateTime.UtcNow });
             Assert.Equal(4, dateTimeStorage.Count);
             Assert.True(dateTimeStorage.NullIndices.SequenceEqual(new[] { 0, 2 }));
             Assert.Null(dateTimeStorage.GetValue(0));
@@ -22,7 +23,7 @@ namespace test
         [Fact]
         public void TestDateTimeStorageWithAllNulls()
         {
-            var dateTimeStorage = new DataProcessor.source.ValueStorage.DateTimeStorage(new DateTime?[] { null, null, null });
+            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { null, null, null });
             Assert.Equal(3, dateTimeStorage.Count);
             Assert.True(dateTimeStorage.NullIndices.SequenceEqual(new[] { 0, 1, 2 }));
             Assert.Null(dateTimeStorage.GetValue(0));
@@ -33,7 +34,7 @@ namespace test
         [Fact]
         public void TestDateTimeStorageWithEmptyArray()
         {
-            var dateTimeStorage = new DataProcessor.source.ValueStorage.DateTimeStorage(new DateTime?[] { });
+            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { });
             Assert.Equal(0, dateTimeStorage.Count);
             Assert.Empty(dateTimeStorage.NullIndices);
         }
@@ -41,7 +42,7 @@ namespace test
         [Fact]
         public void TestDateTimeStorageSetValue()
         {
-            var dateTimeStorage = new DataProcessor.source.ValueStorage.DateTimeStorage(new DateTime?[] { null, null });
+            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { null, null });
             dateTimeStorage.SetValue(0, DateTime.Now);
             dateTimeStorage.SetValue(1, DateTime.UtcNow);
 
@@ -54,7 +55,7 @@ namespace test
         [Fact]
         public void TestApplyLinq()
         {
-            var dateTimeStorage = new DataProcessor.source.ValueStorage.DateTimeStorage(new DateTime?[] { DateTime.Now, null, DateTime.UtcNow });
+            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { DateTime.Now, null, DateTime.UtcNow });
             var result = dateTimeStorage.AsTyped<DateTime?>().Where(dt => dt.HasValue && dt.Value.Kind == DateTimeKind.Utc).ToList();
             Assert.Equal(2, result.Count);
             Assert.Equal(DateTimeKind.Utc, result[0].Value.Kind);
@@ -63,7 +64,7 @@ namespace test
         [Fact]
         public void TestEnumerator()
         {
-            var dateTimeStorage = new DataProcessor.source.ValueStorage.DateTimeStorage(new DateTime?[] { DateTime.Now, null, DateTime.UtcNow });
+            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { DateTime.Now, null, DateTime.UtcNow });
             int count = 0;
             List<DateTime?> dateTimeList = new List<DateTime?>();
             foreach (var value in dateTimeStorage)
@@ -82,14 +83,22 @@ namespace test
         }
 
         [Fact]
-        public void RunAllTests()
+        public void NativePointer_ShouldBeNonZero()
         {
-            TestDateTimeStorageWithNulls();
-            TestDateTimeStorageWithAllNulls();
-            TestDateTimeStorageWithEmptyArray();
-            TestDateTimeStorageSetValue();
-            TestApplyLinq();
-            TestEnumerator();
+            var storage = new DateTimeStorage(new DateTime?[] { DateTime.UtcNow });
+            var ptr = storage.GetNativeBufferPointer();
+            Assert.NotEqual(nint.Zero, ptr);
         }
+
+        [Fact]
+        public void SetValue_ShouldAccept_Convertible()
+        {
+            var dt = DateTime.UtcNow;
+            var storage = new DateTimeStorage(new DateTime?[] { null });
+            storage.SetValue(0, dt.ToString("o"));
+
+            Assert.Equal(dt.ToString("o"), ((DateTime)storage.GetValue(0)).ToString("o"));
+        }
+
     }
 }

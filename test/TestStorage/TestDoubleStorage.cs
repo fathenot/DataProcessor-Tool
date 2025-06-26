@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 using DataProcessor.source.ValueStorage;
-namespace test
+namespace test.TestStorage
 {
     public class TestDoubleStorage
     {
@@ -14,7 +14,7 @@ namespace test
         [Fact]
         public void TestNullHandlingInDoubleStorage()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { null, 3.5, null });
+            var doubleStorage = new DoubleValueStorage(new double?[] { null, 3.5, null });
             Assert.Equal(3, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 0, 2 }));
             Assert.Null(doubleStorage.GetValue(0));
@@ -24,7 +24,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithAllNulls()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { null, null, null });
+            var doubleStorage = new DoubleValueStorage(new double?[] { null, null, null });
             Assert.Equal(3, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 0, 1, 2 }));
             Assert.Null(doubleStorage.GetValue(0));
@@ -34,7 +34,7 @@ namespace test
 
         public void TestDoubleStorageWithEmptyArray()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { });
+            var doubleStorage = new DoubleValueStorage(new double?[] { });
             Assert.Equal(0, doubleStorage.Count);
             Assert.Empty(doubleStorage.NullIndices);
         }
@@ -42,7 +42,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithSingleNullValue()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { null });
+            var doubleStorage = new DoubleValueStorage(new double?[] { null });
             Assert.Equal(1, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 0 }));
             Assert.Null(doubleStorage.GetValue(0));
@@ -50,7 +50,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithSingleValue()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { 5.0 });
+            var doubleStorage = new DoubleValueStorage(new double?[] { 5.0 });
             Assert.Equal(1, doubleStorage.Count);
             Assert.Empty(doubleStorage.NullIndices);
             Assert.Equal(5.0, doubleStorage.GetValue(0));
@@ -59,7 +59,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithMixedValues()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { 1.0, null, 3.5, null, 5.0 });
+            var doubleStorage = new DoubleValueStorage(new double?[] { 1.0, null, 3.5, null, 5.0 });
             Assert.Equal(5, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 1, 3 }));
             Assert.Equal(1.0, doubleStorage.GetValue(0));
@@ -72,7 +72,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithNegativeValues()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { -1.0, -2.5, null, -4.0 });
+            var doubleStorage = new DoubleValueStorage(new double?[] { -1.0, -2.5, null, -4.0 });
             Assert.Equal(4, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 2 }));
             Assert.Equal(-1.0, doubleStorage.GetValue(0));
@@ -83,7 +83,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithLargeValues()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { 1e10, 2e10, null, 4e10 });
+            var doubleStorage = new DoubleValueStorage(new double?[] { 1e10, 2e10, null, 4e10 });
             Assert.Equal(4, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 2 }));
             Assert.Equal(1e10, doubleStorage.GetValue(0));
@@ -94,7 +94,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithNaNAndInfinity()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity });
+            var doubleStorage = new DoubleValueStorage(new double?[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity });
             Assert.Equal(3, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new int[] { })); // No nulls
             Assert.True(double.IsNaN((double)doubleStorage.GetValue(0)));
@@ -105,7 +105,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageWithNullsAndSpecialValues()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { null, double.NaN, double.PositiveInfinity, null, double.NegativeInfinity });
+            var doubleStorage = new DoubleValueStorage(new double?[] { null, double.NaN, double.PositiveInfinity, null, double.NegativeInfinity });
             Assert.Equal(5, doubleStorage.Count);
             Assert.True(doubleStorage.NullIndices.SequenceEqual(new[] { 0, 3 }));
             Assert.Null(doubleStorage.GetValue(0));
@@ -118,7 +118,7 @@ namespace test
         [Fact]
         public void TestDoubleStorageSetValue()
         {
-            var doubleStorage = new DataProcessor.source.ValueStorage.DoubleValueStorage(new double?[] { null, null });
+            var doubleStorage = new DoubleValueStorage(new double?[] { null, null });
             doubleStorage.SetValue(0, 1.5);
             doubleStorage.SetValue(1, 2.5);
             Assert.Equal(1.5, doubleStorage.GetValue(0));
