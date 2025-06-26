@@ -1,13 +1,13 @@
 ﻿using DataProcessor.source.ValueStorage;
 
-namespace test
+namespace test.TestStorage
 {
     public class TestObjectStorage
     {
         [Fact]
         public void TestObjectStorageWithNulls()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { null, "hello", null, 42 });
+            var objectStorage = new ObjectValueStorage(new object?[] { null, "hello", null, 42 });
             Assert.Equal(4, objectStorage.Count);
             Assert.True(objectStorage.NullIndices.SequenceEqual(new[] { 0, 2 }));
             Assert.Null(objectStorage.GetValue(0));
@@ -19,7 +19,7 @@ namespace test
         [Fact]
         public void TestObjectStorageWithAllNulls()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { null, null, null });
+            var objectStorage = new ObjectValueStorage(new object?[] { null, null, null });
             Assert.Equal(3, objectStorage.Count);
             Assert.True(objectStorage.NullIndices.SequenceEqual(new[] { 0, 1, 2 }));
             Assert.Null(objectStorage.GetValue(0));
@@ -30,7 +30,7 @@ namespace test
         [Fact]
         public void TestObjectStorageWithEmptyArray()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { });
+            var objectStorage = new ObjectValueStorage(new object?[] { });
             Assert.Equal(0, objectStorage.Count);
             Assert.Empty(objectStorage.NullIndices);
         }
@@ -38,7 +38,7 @@ namespace test
         [Fact]
         public void TestObjectStorageWithMixedValues()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { "test", null, 123, null, true });
+            var objectStorage = new ObjectValueStorage(new object?[] { "test", null, 123, null, true });
             Assert.Equal(5, objectStorage.Count);
             Assert.True(objectStorage.NullIndices.SequenceEqual(new[] { 1, 3 }));
             Assert.Equal("test", objectStorage.GetValue(0));
@@ -51,7 +51,7 @@ namespace test
         [Fact]
         public void TestApplyLinq()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { "apple", "banana", null, "cherry" });
+            var objectStorage = new ObjectValueStorage(new object?[] { "apple", "banana", null, "cherry" });
             var result = objectStorage.Where(x => x != null).Select(x => x.ToString().ToUpper()).ToList();
             Assert.Equal(3, result.Count);
             Assert.Contains("APPLE", result);
@@ -62,7 +62,7 @@ namespace test
         [Fact]
         public void TesEnumerator()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { "one", "two", "three" });
+            var objectStorage = new ObjectValueStorage(new object?[] { "one", "two", "three" });
             var enumerator = objectStorage.GetEnumerator();
             Assert.True(enumerator.MoveNext());
             Assert.Equal("one", enumerator.Current);
@@ -77,7 +77,7 @@ namespace test
         [Fact]
         public void TestSetValue()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { null, null });
+            var objectStorage = new ObjectValueStorage(new object?[] { null, null });
             objectStorage.SetValue(0, "new value");
             objectStorage.SetValue(1, 123);
             Assert.Equal("new value", objectStorage.GetValue(0));
@@ -87,7 +87,7 @@ namespace test
         [Fact]
         public void TestElementType()
         {
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { "test", null, 42 });
+            var objectStorage = new ObjectValueStorage(new object?[] { "test", null, 42 });
             Assert.Equal(typeof(object), objectStorage.ElementType);
         }
 
@@ -96,7 +96,7 @@ namespace test
         {
             var customObject1 = new { Name = "Alice", Age = 30 };
             var customObject2 = new { Name = "Bob", Age = 25 };
-            var objectStorage = new DataProcessor.source.ValueStorage.ObjectValueStorage(new object?[] { customObject1, null, customObject2 });
+            var objectStorage = new ObjectValueStorage(new object?[] { customObject1, null, customObject2 });
 
             Assert.Equal(3, objectStorage.Count);
             Assert.True(objectStorage.NullIndices.SequenceEqual(new[] { 1 }));

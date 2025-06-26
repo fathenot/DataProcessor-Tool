@@ -1,4 +1,4 @@
-﻿namespace test
+﻿namespace test.TestStorage
 {
     public class TestGenericsStorage
     {

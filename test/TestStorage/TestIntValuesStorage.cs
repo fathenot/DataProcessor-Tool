@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DataProcessor.source.ValueStorage;
-namespace test
+namespace test.TestStorage
 {
     public class TestIntValuesStorage
     {
@@ -99,6 +99,8 @@ namespace test
             Assert.Throws<ArgumentOutOfRangeException>(() => intStorage.GetValue(2));
         }
 
+
+
         [Fact]
        public void RunAllTests()
         {
@@ -110,6 +112,58 @@ namespace test
             TestNegativeValuesInIntStorage();
             TestLargeValuesInIntStorage();
             TestSetValueInIntStorage();
+        }
+        public class IntValuesStorageConcurrencyTests
+        {
+            private const int ElementCount = 1_000_000;
+            private const int ThreadCount = 16;
+
+            private IntValuesStorage CreateStorage()
+            {
+                var values = new long?[ElementCount];
+                for (int i = 0; i < ElementCount; i++)
+                {
+                    values[i] = 0;
+                }
+                return new IntValuesStorage(values);
+            }
+
+            [Fact]
+            public void Parallel_SetValue_ShouldNotCrash_And_StayConsistent()
+            {
+                var storage = CreateStorage();
+                var exceptions = new List<Exception>();
+
+                Parallel.For(0, ThreadCount, threadId =>
+                {
+                    try
+                    {
+                        for (int i = 0; i < ElementCount; i++)
+                        {
+                            // Đọc và ghi lại giá trị (dễ sinh race)
+                            var raw = storage.GetValue(i);
+                            var current = raw is null ? 0 : (long)raw;
+                            storage.SetValue(i, current + 1);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        lock (exceptions)
+                            exceptions.Add(ex);
+                    }
+                });
+
+                // Assert: Không có exception nào
+                Assert.Empty(exceptions);
+
+                // Assert: Tổng giá trị ở mỗi ô phải bằng ThreadCount nếu không race
+                for (int i = 0; i < ElementCount; i++)
+                {
+                    var result = storage.GetValue(i);
+                    Assert.True(result is long, $"Value at index {i} is null");
+                    Assert.Equal(ThreadCount, (long)result!);
+                }
+            }
         }
     }
 }
