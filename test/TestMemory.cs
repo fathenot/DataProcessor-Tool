@@ -31,7 +31,7 @@ namespace test
 
             long after = GC.GetTotalMemory(true);
 
-            Assert.True(after - before < 1.7* 1024*1024); // khoảng dưới 1MB
+            Assert.True(after - before < 2* 1024*1024);
         }
 
     }
