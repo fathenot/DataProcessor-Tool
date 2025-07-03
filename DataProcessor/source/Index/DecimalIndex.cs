@@ -64,6 +64,23 @@
             return -1; // Not found
         }
 
+        /// <summary>
+        /// Creates a new index by extracting a subset of elements from the current index,  based on the specified
+        /// start, end, and step parameters. It will included the elements at the start and end indices
+        /// </summary>
+        /// <remarks>The method supports both forward and reverse slicing based on the sign of <paramref
+        /// name="step"/>. If <paramref name="step"/> is positive, elements are selected from <paramref name="start"/>
+        /// to <paramref name="end"/> inclusively. If <paramref name="step"/> is negative, elements are selected in
+        /// reverse order from <paramref name="start"/> to <paramref name="end"/> inclusively.</remarks>
+        /// <param name="start">The zero-based starting index of the slice. Must be within the bounds of the current index.</param>
+        /// <param name="end">The zero-based ending index of the slice. Must be within the bounds of the current index.</param>
+        /// <param name="step">The step size for the slice. Must not be zero. Positive values iterate forward, while negative values
+        /// iterate backward.</param>
+        /// <returns>A new <see cref="IIndex"/> containing the elements from the current index that match the specified slicing
+        /// criteria.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="step"/> is zero.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="start"/> or <paramref name="end"/> is outside the bounds of the current index.</exception>
+
         public override IIndex Slice(int start, int end, int step = 1)
         {
             if (step == 0)
@@ -96,6 +113,36 @@
 
         }
 
+        /// <summary>
+        /// Creates a new index by extracting elements from the current index based on the specified list of keys.
+        /// </summary>
+        /// <remarks>This method iterates through the provided list of keys and retrieves all elements
+        /// associated with each key  from the current index. If a key is invalid or missing, an exception is
+        /// thrown.</remarks>
+        /// <param name="indexList">A list of objects representing the keys to slice the index. Each key must be a <see langword="decimal"/> 
+        /// and must exist in the current index.</param>
+        /// <returns>A new <see cref="DecimalIndex"/> containing the elements corresponding to the specified keys.</returns>
+        /// <exception cref="ArgumentException">Thrown if any key in <paramref name="indexList"/> is not a <see langword="decimal"/> or does not exist in
+        /// the current index.</exception>
+        public override IIndex Slice(List<object> indexList)
+        {
+            List<decimal> slicedDecimals = new List<decimal>();
+            foreach (var item in indexList)
+            {
+                if (item is decimal dec && indexMap.ContainsKey(dec))
+                {
+                    foreach (var index in indexMap[dec])
+                    {
+                        slicedDecimals.Add(dec);
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException($"Index {item} not found in the current index.");
+                }
+            }
+            return new DecimalIndex(slicedDecimals);
+        }
         public override IEnumerable<object> DistinctIndices()
         {
             return decimals.Distinct().Cast<object>().ToList();
@@ -106,6 +153,35 @@
             foreach (var dec in decimals)
             {
                 yield return dec;
+            }
+        }
+
+        public override object this[int index]
+        {
+            protected set
+            {
+                if (index < 0 || index >= decimals.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                }
+                decimal oldValue = decimals[index];
+                decimals[index] = (decimal)value;
+
+                // Cập nhật indexMap
+                if (indexMap.ContainsKey(oldValue))
+                {
+                    indexMap[oldValue].Remove(index);
+                    if (!indexMap[oldValue].Any())
+                    {
+                        indexMap.Remove(oldValue);
+                    }
+                }
+
+                if (!indexMap.ContainsKey((decimal)value))
+                {
+                    indexMap[(decimal)value] = new List<int>();
+                }
+                indexMap[(decimal)value].Add(index);
             }
         }
     }

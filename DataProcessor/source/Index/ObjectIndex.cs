@@ -10,6 +10,13 @@ namespace DataProcessor.source.Index
     {
         private readonly List<object> objects;
         private readonly Dictionary<object, List<int>> indexMap;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ObjectIndex"/> class, creating an index for the specified list
+        /// of objects.
+        /// </summary>
+        /// <remarks>The constructor builds an internal index mapping each unique object in the list to
+        /// the list of its indices. This allows for efficient lookups of object positions within the list.</remarks>
+        /// <param name="objects">The list of objects to index. Cannot be null.</param>
         public ObjectIndex(List<object> objects) : base(objects)
         {
             this.objects = objects;
@@ -74,10 +81,7 @@ namespace DataProcessor.source.Index
             {
                 for (int i = start; i <= end; i += step)
                 {
-                    if (i >= objects.Count)
-                    {
-                        slicedObjects.Add(objects[i]);
-                    }
+                    slicedObjects.Add(objects[i]);
                 }
             }
 
@@ -85,16 +89,36 @@ namespace DataProcessor.source.Index
             {
                 for (int i = start; i >= end; i += step)
                 {
-                    if (i < objects.Count)
-                    {
-                        slicedObjects.Add(objects[i]);
-                    }
+                    slicedObjects.Add(objects[i]);
                 }
             }
 
             return new ObjectIndex(slicedObjects);
         }
 
+        public override IIndex Slice(List<object> indexList)
+        {
+            List<object> slicedObjects = new List<object>();
+            foreach (var item in indexList)
+            {
+                if(item == null)
+                {
+                    throw new ArgumentException(nameof(item), "Item cannot be null.");
+                }
+                if (indexMap.ContainsKey(item))
+                {
+                    foreach (var position in indexMap[item])
+                    {
+                        slicedObjects.Add(objects[position]);
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException($"Object {item} not found in the current index.");
+                }
+            }
+            return new ObjectIndex(slicedObjects);
+        }
         public override IEnumerator<object> GetEnumerator()
         {
           for (int i = 0; i < objects.Count; i++)
@@ -102,5 +126,33 @@ namespace DataProcessor.source.Index
                 yield return objects[i];
             }
         }
+
+        public override object this[int index] {
+           protected set
+            {
+                if (index < 0 || index >= objects.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                }
+                object oldValue = objects[index];
+                objects[index] = value;
+
+                // Cập nhật indexMap
+                if (indexMap.ContainsKey(oldValue))
+                {
+                    indexMap[oldValue].Remove(index);
+                    if (indexMap[oldValue].Count == 0)
+                    {
+                        indexMap.Remove(oldValue);
+                    }
+                }
+
+                if (!indexMap.ContainsKey(value))
+                {
+                    indexMap[value] = new List<int>();
+                }
+                indexMap[value].Add(index);
+            }
+    }
     }
 }

@@ -29,10 +29,8 @@
                 {
                     indexMap[index[i]] = new List<int>();
                 }
-                else
-                {
-                    indexMap[index[i]].Add(i);
-                }
+
+                indexMap[index[i]].Add(i);
             }
         }
 
@@ -41,7 +39,7 @@
         public override IReadOnlyList<object> IndexList => indexList.Cast<object>().ToList().AsReadOnly();
 
         //public and internal methods
-        public override DoubleIndex Slice(int start, int end, int step)
+        public override IIndex Slice(int start, int end, int step)
         {
             List<double> slicedIndex = new List<double>();
 
@@ -66,6 +64,23 @@
             return new DoubleIndex(slicedIndex);
         }
 
+        public override IIndex Slice(List<object> indexList)
+        {
+            List<double> slicedIndex = new List<double>();
+            foreach (var item in indexList)
+            {
+                var convertedValue = ConvertToDouble(item);
+                if (!indexMap.ContainsKey(convertedValue))
+                {
+                    throw new ArgumentException($"Index {item} not found in the current index.");
+                }
+                foreach (var position in indexMap[convertedValue])
+                {
+                    slicedIndex.Add(convertedValue);
+                }
+            }
+            return new DoubleIndex(slicedIndex);
+        }
         public override object GetIndex(int idx)
         {
             return indexList[idx];
@@ -85,7 +100,7 @@
             return -1;
         }
 
-        public override IList<int> GetIndexPosition(object index)
+        public override IReadOnlyList<int> GetIndexPosition(object index)
         {
             if (index is double doubleKey && indexMap.ContainsKey(doubleKey))
             {
@@ -104,6 +119,35 @@
             foreach (object item in indexList)
             {
                 yield return item;
+            }
+        }
+
+        public override object this[int index]
+        {
+            protected set
+            {
+                if (index < 0 || index >= indexList.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                }
+                double oldValue = indexList[index];
+                indexList[index] = (double)value;
+
+                // Cập nhật indexMap
+                if (indexMap.ContainsKey(oldValue))
+                {
+                    indexMap[oldValue].Remove(index);
+                    if (indexMap[oldValue].Count == 0)
+                    {
+                        indexMap.Remove(oldValue);
+                    }
+                }
+
+                if (!indexMap.ContainsKey((double)value))
+                {
+                    indexMap[(double)value] = new List<int>();
+                }
+                indexMap[(double)value].Add(index);
             }
         }
     }

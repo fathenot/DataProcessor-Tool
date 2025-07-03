@@ -1,4 +1,6 @@
-﻿namespace DataProcessor.source.Index
+﻿using System.Collections.Generic;
+
+namespace DataProcessor.source.Index
 {
     public class DateTimeIndex : IIndex
     {
@@ -17,7 +19,7 @@
             {
                 return Convert.ToDateTime(value);
             }
-            catch (Exception ex )
+            catch (Exception ex)
             {
 
                 throw new ArgumentException($"Invalid index: cannot convert {value} to long.", ex);
@@ -57,6 +59,10 @@
         }
         public override object GetIndex(int idx)
         {
+            if (idx < 0 || idx >= dateTimes.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(idx), "Index is out of range.");
+            }
             return dateTimes[idx];
         }
 
@@ -70,10 +76,16 @@
         public override IIndex Slice(int start, int end, int step = 1)
         {
             List<DateTime> slicedIndex = new List<DateTime>();
+            // validate parameters
             if (step == 0)
             {
                 throw new ArgumentException($"step must not be 0");
             }
+            if (start < 0 || end < 0 || start >= dateTimes.Count || end >= dateTimes.Count)
+            {
+                throw new ArgumentOutOfRangeException("start or end index is out of range.");
+            }
+
             else if (step > 0)
             {
                 for (int i = start; i <= end; i += step)
@@ -91,6 +103,23 @@
             return new DateTimeIndex(slicedIndex);
         }
 
+        public override IIndex Slice(List<object> indexList)
+        {
+            List<DateTime> slicedIndex = new List<DateTime>();
+            foreach (var item in indexList)
+            {
+                if (item is DateTime dateTime && indexMap.ContainsKey(dateTime))
+                {
+                    slicedIndex.Add(dateTime);
+                }
+                else
+                {
+                    throw new ArgumentException($"Invalid item {item} in index list.");
+                }
+            }
+            return new DateTimeIndex(slicedIndex);
+        }
+
         public override IEnumerable<object> DistinctIndices()
         {
             return dateTimes.Distinct().Cast<object>();
@@ -100,6 +129,35 @@
         {
             foreach (var item in dateTimes)
                 yield return item;
+        }
+
+        public override object this[int index]
+        {
+            protected set
+            {
+                if (index < 0 || index >= dateTimes.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                }
+               DateTime oldValue = dateTimes[index];
+                dateTimes[index] = (DateTime)value;
+
+                // Cập nhật indexMap
+                if (indexMap.ContainsKey(oldValue))
+                {
+                    indexMap[oldValue].Remove(index);
+                    if (!indexMap[oldValue].Any())
+                    {
+                        indexMap.Remove(oldValue);
+                    }
+                }
+
+                if (!indexMap.ContainsKey((DateTime)value))
+                {
+                    indexMap[(DateTime)value] = new List<int>();
+                }
+                indexMap[(DateTime)value].Add(index);
+            }
         }
     }
 }
