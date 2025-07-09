@@ -65,7 +65,7 @@
         /// <returns>An array of <see cref="uint"/> representing the bitmap chunks.</returns>
         internal uint[] ToArray()
         {
-            return chunks.ToArray();
+            return chunks;
         }
 
         /// <summary>

@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 using System.Text;
-using DataProcessor.source;
+using DataProcessor.source.UserSettings;
 namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
@@ -42,7 +42,7 @@ namespace DataProcessor.source.ValueStorage
                 this.strings = strings;
                 for (int i = 0; i < strings.Length; i++)
                 {
-                    this.strings[i] = UserSettings.NormalizeUnicode ? strings[i]?.Normalize(UserSettings.DefaultNormalizationForm) : strings[i];
+                    this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? strings[i]?.Normalize(UserSettings.UserConfig.DefaultNormalizationForm) : strings[i];
                 }
             }
             else
@@ -51,7 +51,7 @@ namespace DataProcessor.source.ValueStorage
                 for (int i = 0; i < strings.Length; i++)
                 {
                     string? s = strings[i];
-                    this.strings[i] = UserSettings.NormalizeUnicode ? s?.Normalize(UserSettings.DefaultNormalizationForm) : s;
+                    this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? s?.Normalize(UserSettings.UserConfig.DefaultNormalizationForm) : s;
                 }
             }
            
