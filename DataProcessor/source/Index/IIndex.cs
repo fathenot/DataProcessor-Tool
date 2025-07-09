@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace DataProcessor.source.Index
@@ -7,7 +8,7 @@ namespace DataProcessor.source.Index
     /// Represents an abstract base class for indexing functionality in a DataFrame-like structure.
     /// Supports lookup, slicing, and metadata about the index.
     /// </summary>
-    public abstract class IIndex
+    public abstract class IIndex : IEnumerable<object>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="IIndex"/> class.
@@ -44,7 +45,7 @@ namespace DataProcessor.source.Index
         /// </summary>
         /// <param name="index">The value to locate in the index.</param>
         /// <returns>A list of positions where the value occurs.</returns>
-        public abstract IList<int> GetIndexPosition(object index);
+        public abstract IReadOnlyList<int> GetIndexPosition(object index);
 
         /// <summary>
         /// Determines whether the index contains the specified key.
@@ -70,6 +71,14 @@ namespace DataProcessor.source.Index
         public abstract IIndex Slice(int start, int end, int step = 1);
 
         /// <summary>
+        /// Creates a new index by extracting elements from the current index based on the specified list of keys.
+        /// </summary>
+        /// <param name="indexList">A list of keys used to select elements from the current index. Each key must correspond to an existing
+        /// element in the index.</param>
+        /// <returns>An <see cref="IIndex"/> containing the elements that match the specified keys.</returns>
+
+        public abstract IIndex Slice(List<object> indexList);
+        /// <summary>
         /// Gets all distinct index values in the current index.
         /// </summary>
         /// <returns>An enumerable of distinct index values.</returns>
@@ -80,5 +89,24 @@ namespace DataProcessor.source.Index
         /// </summary>
         /// <returns>An enumerator for the index.</returns>
         public abstract IEnumerator<object> GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        /// <summary>
+        /// Gets the value at the specified index in the collection.
+        /// </summary>
+        /// <remarks>This property provides read-only access to the collection. To modify values, use a
+        /// derived class that supports setting index values.</remarks>
+        /// <param name="index">The zero-based index of the value to retrieve.</param>
+        /// <returns>The value at the specified index.</returns>
+        /// <exception cref="NotSupportedException"></exception>
+        public virtual object this[int index]
+        {
+            get => GetIndex(index);
+            protected set
+            {
+                throw new NotSupportedException("Setting index values is not supported in IIndex. Use derived classes for specific implementations.");
+            }
+        }
     }
 }

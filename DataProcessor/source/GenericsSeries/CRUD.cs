@@ -1,130 +1,80 @@
-﻿using System;
+﻿using DataProcessor.source.Index;
+using DataProcessor.source.NonGenericsSeries;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace DataProcessor.source.GenericsSeries
-{
+{ 
+    // This partial class contains crud operations for series. Currently it only contains constructors
     public partial class Series<DataType>
     {
-        public void UpdateValues(object index, List<DataType> newValues)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Series{DataType}"/> class, representing a collection of data
+        /// points with an optional name and index.
+        /// </summary>
+        /// <remarks>The <paramref name="index"/> parameter is validated to ensure it does not contain
+        /// null values. Based on the type of the index elements, an appropriate index implementation is selected, such
+        /// as <see cref="Index.StringIndex"/>, <see cref="Index.Int64Index"/>, or <see cref="Index.MultiIndex"/> If the
+        /// index contains grouped elements (e.g., arrays), a <see cref="Index.MultiIndex"/> is created.</remarks>
+        /// <param name="data">The collection of data points to be stored in the series. Cannot be null.</param>
+        /// <param name="name">The optional name of the series. If not provided, defaults to an empty string.</param>
+        /// <param name="index">The optional index associated with the data points. If not provided, a default range index is created. The
+        /// index must not contain null values, and its type determines the specific index implementation.</param>
+        public Series(List<DataType> data, string? name = null, List<object>? index = null)
         {
-            if (!this.index.Contains(index))
+            this.name = name ?? string.Empty;
+            this.values = new ValueStorage.GenericsStorage<DataType>(data);
+            if(index == null)
             {
-                throw new ArgumentException("Index not found", nameof(index));
+                this.index = new RangeIndex(0, data.Count - 1);
             }
-
-            var indices = this.indexMap[index]; // Lấy danh sách index ánh xạ
-
-            // Đảm bảo newValues hợp lệ: hoặc có 1 phần tử hoặc có đúng số lượng phần tử của index
-            if (newValues.Count != 1 && newValues.Count != indices.Count)
+            else
             {
-                throw new ArgumentException("Value list must either have one element or match the indexed element count.");
-            }
+                // validate index must not contain null
+                var finalIndex = index.Cast<object>().ToList();
 
-            for (int j = 0; j < indices.Count; j++)
-            {
-                this.values[indices[j]] = (newValues.Count == 1) ? newValues[0] : newValues[j];
-            }
-        }
-
-        public void Add(DataType item, object? index = null)
-        {
-            if (index == null)
-            {
-                if (!this.defaultIndex)
+                // check type of index and create index
+                bool containGroups = DataProcessor.source.Index.IndexUtils.ContainsGroupedIndex(index);
+                if (containGroups)
                 {
-                    throw new ArgumentException("Cannot add null index when index is not default");
+                    this.index = new Index.MultiIndex(index.Select(i => i is object[]? new Index.MultiKey((object[])i) : new Index.MultiKey(new object[] { i })).ToList());
                 }
-                this.index.Add(this.Count);
-                this.indexMap[this.Count] = new List<int> { this.Count };
-                return;
-            }
-            if (index != null)
-            {
-                this.index.Add(index);
-                if (!indexMap.TryGetValue(index, out var list))
+
+                else if (Support.InferDataType(finalIndex) == typeof(string))
                 {
-                    list = new List<int>();
-                    indexMap[index] = list;
+                    this.index = new Index.StringIndex(index.Cast<string>().ToList());
                 }
-                list.Add(values.Count);
-                this.defaultIndex = false;
-            }
-            this.values.Add(item);
-        }
-
-        public bool Remove(DataType item, bool deleteIndexIfEmpty = true)
-        {
-            bool removed = false;
-            var keysToDelete = new List<object>(); // Lưu index cần xóa
-            foreach (var key in indexMap.Keys.ToList()) // ToList() để tránh Collection Modified
-            {
-                if (indexMap.TryGetValue(key, out var positions))
+                else if (Support.InferDataType(finalIndex) == typeof(long))
                 {
-                    var toRemove = positions.Where(i => Equals(values[i], item)).ToList();
-                    if (toRemove.Count > 0)
-                    {
-                        removed = true;
-                        positions.RemoveAll(i => toRemove.Contains(i));
+                    this.index = new Index.Int64Index(index.Cast<long>().ToList());
+                }
+                else if (Support.InferDataType(finalIndex) == typeof(double))
+                {
+                    this.index = new Index.DoubleIndex(index.Cast<double>().ToList());
+                }
+                else if (Support.InferDataType(finalIndex) == typeof(decimal))
+                {
+                    this.index = new Index.DecimalIndex(index.Cast<decimal>().ToList());
+                }
 
-                        if (positions.Count == 0 && deleteIndexIfEmpty)
-                        {
-                            keysToDelete.Add(key);
-                        }
-                    }
+                else if (Support.InferDataType(finalIndex) == typeof(DateTime))
+                {
+                    this.index = new Index.DateTimeIndex(finalIndex.Cast<DateTime>().ToList());
+                }
+
+                else if (Support.InferDataType(finalIndex) == typeof(char))
+                {
+                    this.index = new Index.CharIndex(index.Cast<char>().ToList());
+                }
+
+                else if (Support.InferDataType(finalIndex) == typeof(object))
+                {
+                    this.index = new Index.ObjectIndex(finalIndex);
                 }
             }
-
-            if (!removed) return false;
-
-            // Cleanup values và cập nhật lại indexMap
-            var newValues = new List<DataType>();
-            var newIndexMap = new Dictionary<object, List<int>>();
-
-            int[] indexMapping = new int[values.Count]; // Ánh xạ index cũ -> index mới
-            int newIdx = 0;
-
-            for (int i = 0; i < values.Count; i++)
-            {
-                if (!indexMap.Values.Any(lst => lst.Contains(i))) continue; // Bỏ qua giá trị không còn được tham chiếu
-
-                newValues.Add(values[i]);
-                indexMapping[i] = newIdx++;
-
-                foreach (var key in indexMap.Keys)
-                {
-                    if (indexMap[key].Contains(i))
-                    {
-                        if (!newIndexMap.TryGetValue(key, out List<int>? value))
-                        {
-                            value = new List<int>();
-                            newIndexMap[key] = value;
-                        }
-
-                        value.Add(indexMapping[i]);
-                    }
-                }
-            }
-
-            values = newValues;
-            indexMap = newIndexMap;
-
-            // Xóa index sau khi xử lý xong để tránh Collection Modified
-            foreach (var key in keysToDelete)
-            {
-                indexMap.Remove(key);
-            }
-
-            return true;
-        }
-
-        public void Clear()
-        {
-            values.Clear();
-            this.index.Clear();
-            this.indexMap.Clear();
         }
     }
 }

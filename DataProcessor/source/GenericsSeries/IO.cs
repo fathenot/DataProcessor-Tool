@@ -16,7 +16,7 @@ namespace DataProcessor.source.GenericsSeries
             sb.AppendLine("--------------");
             for (int i = 0; i < values.Count; i++)
             {
-                sb.AppendLine($"{index[i].ToString(),5} | {values[i]?.ToString() ?? "null"}");
+                sb.AppendLine($"{index[i].ToString(),5} | {values.GetValue(i)?.ToString() ?? "null"}");
             }
             return sb.ToString();
         }

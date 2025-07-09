@@ -56,7 +56,7 @@
 
         public override bool Contains(object key)
         {
-            if(key == null) throw new ArgumentNullException( nameof(key));
+            if (key == null) throw new ArgumentNullException(nameof(key));
             var tmp = ConvertToLong(key);
             return indexMap.ContainsKey(tmp);
         }
@@ -68,7 +68,7 @@
             {
                 return indexMap[tmp];
             }
-            throw new KeyNotFoundException($"Index {index} not found.");
+            throw new ArgumentException($"Index {index} not found.");
         }
 
         // Phương thức slice để lấy một phần của index
@@ -98,6 +98,27 @@
             return new Int64Index(slicedIndex.Cast<long>().ToList());  // Trả về Int64Index với List<long>
         }
 
+        public override IIndex Slice(List<object> indexList)
+        {
+           var slicedIndex = new List<long>();
+            foreach (var item in indexList)
+            {
+                var tmp = ConvertToLong(item);
+                if(indexMap.ContainsKey(tmp))
+                {
+                   foreach (var position in indexMap[tmp])
+                    {
+                        slicedIndex.Add(tmp);
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException($"Item {item} is not of type long.");
+                }
+            }
+            return new Int64Index(slicedIndex);
+        }
+
         public override IEnumerable<object> DistinctIndices()
         {
             return indexList.Distinct().Cast<object>();
@@ -107,6 +128,35 @@
         {
             foreach (var item in indexList)
                 yield return item;
+        }
+
+        public override object this[int index]
+        {
+            protected set
+            {
+                if (index < 0 || index >= indexList.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                }
+                long oldValue = indexList[index];
+                indexList[index] = (char)value;
+
+                // Cập nhật indexMap
+                if (indexMap.ContainsKey(oldValue))
+                {
+                    indexMap[oldValue].Remove(index);
+                    if (indexMap[oldValue].Count == 0)
+                    {
+                        indexMap.Remove(oldValue);
+                    }
+                }
+
+                if (!indexMap.ContainsKey((char)value))
+                {
+                    indexMap[(char)value] = new List<int>();
+                }
+                indexMap[(char)value].Add(index);
+            }
         }
     }
 }

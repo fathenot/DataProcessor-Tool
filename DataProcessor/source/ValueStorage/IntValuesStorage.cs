@@ -1,15 +1,12 @@
-﻿using DataProcessor.source.ValueStorage;
-using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Runtime.InteropServices;
 
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("test")]
 namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
     /// Provides storage for nullable 64-bit integer values, with support for null tracking and native buffer access.
     /// </summary>
-    internal class IntValuesStorage :AbstractValueStorage, IEnumerable<object?>, IDisposable
+    internal class IntValuesStorage : AbstractValueStorage, IEnumerable<object?>, IDisposable
     {
         private readonly long[] _intValues;
         private readonly NullBitMap _bitMap;
@@ -77,23 +74,23 @@ namespace DataProcessor.source.ValueStorage
 
         internal override void SetValue(int index, object? value)
         {
-            ValidateIndex(index);
 
+            ValidateIndex(index);
             if (value is null)
             {
                 _bitMap.SetNull(index, true);
                 _intValues[index] = default;
                 return;
             }
-
             if (value is IConvertible convertible)
             {
-                try {
+                try
+                {
                     _intValues[index] = Convert.ToInt64(convertible);
                     _bitMap.SetNull(index, false);
                     return;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     throw new ArgumentException($"Cannot convert value to long: {e.Message}", e);
                 }
@@ -135,7 +132,6 @@ namespace DataProcessor.source.ValueStorage
         {
             if (_handle.IsAllocated)
                 _handle.Free();
-            GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -143,15 +139,16 @@ namespace DataProcessor.source.ValueStorage
             if (!disposed)
             {
                 if (_handle.IsAllocated)
+                {
                     _handle.Free();
+                }
 
                 disposed = true;
             }
         }
         ~IntValuesStorage()
         {
-            if (_handle.IsAllocated)
-                _handle.Free();
+            Dispose();
         }
 
         /// <summary>
@@ -172,7 +169,7 @@ namespace DataProcessor.source.ValueStorage
 
             public Enumerator(IntValuesStorage storage)
             {
-               this.storage = storage;
+                this.storage = storage;
                 currentIndex = -1;
             }
 

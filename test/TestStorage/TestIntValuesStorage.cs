@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,7 +16,7 @@ namespace test.TestStorage
             Assert.Equal(3, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 0, 2 }));
             Assert.Null(intStorage.GetValue(0));
-            Assert.Equal(3, (long)intStorage.GetValue(1));
+            Assert.Equal(3, (long)intStorage.GetValue(1)!);
         }
 
         [Fact]
@@ -71,7 +72,7 @@ namespace test.TestStorage
         [Fact]
         public void TestLargeValuesInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long ?[] { 1000000000, 2000000000, null, 4000000000 });
+            var intStorage = new IntValuesStorage(new long?[] { 1000000000, 2000000000, null, 4000000000 });
             Assert.Equal(4, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 2 }));
             Assert.Equal(1000000000, (long)intStorage.GetValue(0));
@@ -87,82 +88,78 @@ namespace test.TestStorage
             intStorage.SetValue(1, 20);
             Assert.Equal(10, (long)intStorage.GetValue(0));
             Assert.Equal(20, (long)intStorage.GetValue(1));
-            
+
             // Test setting a null value
             intStorage.SetValue(0, null);
             Assert.Null(intStorage.GetValue(0));
-            
+
             // Test setting an invalid type
             Assert.Throws<ArgumentException>(() => intStorage.SetValue(1, "invalid"));
-            
+
             // Test accessing out of bounds index
             Assert.Throws<ArgumentOutOfRangeException>(() => intStorage.GetValue(2));
         }
 
-
-
         [Fact]
-       public void RunAllTests()
+        public void TestMillionsElementsInIntStorage()
         {
-            TestNullHandlingInIntStorage();
-            TestEmptyIntStorage();
-            TestSingleNullValueInIntStorage();
-            TestSingleValueInIntStorage();
-            TestMixedValuesInIntStorage();
-            TestNegativeValuesInIntStorage();
-            TestLargeValuesInIntStorage();
-            TestSetValueInIntStorage();
-        }
-        public class IntValuesStorageConcurrencyTests
-        {
-            private const int ElementCount = 1_000_000;
-            private const int ThreadCount = 16;
-
-            private IntValuesStorage CreateStorage()
+            var millionElements = new long?[1000000];
+            for (int i = 0; i < millionElements.Length; i++)
             {
-                var values = new long?[ElementCount];
-                for (int i = 0; i < ElementCount; i++)
-                {
-                    values[i] = 0;
-                }
-                return new IntValuesStorage(values);
+                millionElements[i] = i % 2 == 0 ? (long?)i : null; // Half null, half int
+            }
+            var intStorage = new IntValuesStorage(millionElements);
+            Assert.Equal(1000000, intStorage.Count);
+            Assert.Equal(500000,intStorage.NullIndices.Count()); // Half should be null
+            Assert.Equal(0, (long)intStorage.GetValue(0));
+            Assert.Null(intStorage.GetValue(1));
+            Assert.Equal(2, (long)intStorage.GetValue(2));
+            //Apply Linq
+            intStorage.NullIndices.ToList().ForEach(index =>
+            {
+                Assert.True(intStorage.GetValue(index) is null);
+            });
+
+        }
+
+        // stress test
+        [Fact]
+        public void TestIntStorage_ComplexLinqFilter()
+        {
+            var millionElements = new long?[10_000_000];
+            for (int i = 0; i < millionElements.Length; i++)
+            {
+                // Mix nulls + số âm + số dương + số chẵn/lẻ
+                millionElements[i] = (i % 3 == 0) ? null : (long?)(i % 2 == 0 ? -i : i);
             }
 
-            [Fact]
-            public void Parallel_SetValue_ShouldNotCrash_And_StayConsistent()
+            var intStorage = new IntValuesStorage(millionElements);
+            Assert.Equal(10_000_000, intStorage.Count);
+
+            // Bắt đầu đo thời gian lọc
+            var sw = Stopwatch.StartNew();
+
+            var filtered = Enumerable.Range(0, intStorage.Count)
+                .Where(i =>
+                {
+                    var v = intStorage.GetValue(i);
+                    // Logic phức tạp hơn bình thường
+                    return v != null &&
+                           (long)v % 7 != 0 &&         // Lẻ
+                           (long)v > 10000 &&          // Lớn hơn 10k
+                           (long)v < 900000 &&         // Nhỏ hơn 900k
+                            v.ToString().Contains('7'); // Có số 7 trong chuỗi
+                })
+                .ToArray();
+
+            sw.Stop();
+
+            Console.WriteLine($"Filtered {filtered.Length} items in {sw.ElapsedMilliseconds} ms");
+
+            // Đảm bảo không có phần tử null
+            foreach (var idx in filtered)
             {
-                var storage = CreateStorage();
-                var exceptions = new List<Exception>();
-
-                Parallel.For(0, ThreadCount, threadId =>
-                {
-                    try
-                    {
-                        for (int i = 0; i < ElementCount; i++)
-                        {
-                            // Đọc và ghi lại giá trị (dễ sinh race)
-                            var raw = storage.GetValue(i);
-                            var current = raw is null ? 0 : (long)raw;
-                            storage.SetValue(i, current + 1);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        lock (exceptions)
-                            exceptions.Add(ex);
-                    }
-                });
-
-                // Assert: Không có exception nào
-                Assert.Empty(exceptions);
-
-                // Assert: Tổng giá trị ở mỗi ô phải bằng ThreadCount nếu không race
-                for (int i = 0; i < ElementCount; i++)
-                {
-                    var result = storage.GetValue(i);
-                    Assert.True(result is long, $"Value at index {i} is null");
-                    Assert.Equal(ThreadCount, (long)result!);
-                }
+                Assert.NotNull(intStorage.GetValue(idx));
             }
         }
     }

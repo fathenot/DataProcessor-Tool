@@ -1,5 +1,11 @@
-﻿namespace DataProcessor.source.Index
+﻿using System.Collections.Generic;
+
+namespace DataProcessor.source.Index
 {
+
+    /// <summary>
+    /// this class represents a multi-key used for multi-indexing.
+    /// </summary>
     public readonly struct MultiKey : IEquatable<MultiKey>
     {
         private readonly object[] _values;
@@ -9,7 +15,6 @@
             _values = values ?? throw new ArgumentNullException(nameof(values));
         }
 
-
         public MultiKey(MultiKey other)
         {
             _values = new object[other.Values.Length];
@@ -18,7 +23,7 @@
                 _values[i] = other.Values[i];
             }
         }
-        // Sửa lại Equals để kiểm tra null đúng cách và so sánh theo giá trị từng phần tử
+       
         public bool Equals(MultiKey other)
         {
             if (_values.Length != other._values.Length) return false;
@@ -56,12 +61,15 @@
         public object[] Values => _values;
     }
 
+    /// <summary>
+    /// this class represents a multi-index, which is a collection of multi-keys.
+    /// </summary>
     public class MultiIndex : IIndex
     {
         private List<MultiKey> indexList;
         private Dictionary<MultiKey, List<int>> indexMap;
 
-
+        // constructors
         public MultiIndex(List<object[]> indexList) : base()
         {
             this.indexList = new List<MultiKey>(indexList.Count);
@@ -71,7 +79,7 @@
             for (int i = 0; i < indexList.Count; i++)
             {
                 var key = new MultiKey(indexList[i]);
-                this.indexList[i] = key;
+                this.indexList.Add(key);
 
                 if (!indexMap.ContainsKey(key))
                 {
@@ -111,6 +119,38 @@
 
             return new MultiIndex(slicedList);
         }
+
+        public override IIndex Slice(List<object> key)
+        {
+            // convert elemeents of key to MultiKey forrmat
+            var convertedToMultikeys = key.Select(k =>
+            {
+                if (k is object[] arr)
+                    return new MultiKey(arr);
+                else
+                    return new MultiKey(k);
+            }).ToList();
+
+            List<MultiKey> filteredList = new List<MultiKey>();
+            foreach(var item in convertedToMultikeys)
+            {
+                List<int>? positions;
+                indexMap.TryGetValue(item, out positions);
+                if (positions != null)
+                {
+                    foreach (var pos in positions)
+                    {
+                        filteredList.Add(indexList[pos]);
+                    }
+                }
+                else
+                {
+                    // Nếu không tìm thấy, có thể thêm một thông báo hoặc xử lý khác
+                   throw new ArgumentException($"Key {item} not found in the index.");
+                }
+            }
+            return new MultiIndex(filteredList);
+        }
         public MultiIndex SliceLevel(int level, object key)
         {
             // Lọc các phần tử có giá trị tại level == key
@@ -133,7 +173,7 @@
                 return indexMap.ContainsKey(multiKey);
             }
 
-            if(key is object[] arr)
+            if (key is object[] arr)
             {
                 return this.Contains(arr);
             }
@@ -150,11 +190,11 @@
             throw new KeyNotFoundException($"Key {string.Join(", ", key)} not found.");
         }
 
-        public override IList<int> GetIndexPosition(object index)
+        public override IReadOnlyList<int> GetIndexPosition(object index)
         {
             if (index is object[] arr)
             {
-                return new List<int> (GetIndexPosition(arr));
+               return indexMap[new MultiKey(arr)];
             }
             if (index is MultiKey multiKey)
             {
@@ -165,11 +205,11 @@
 
         public override int FirstPositionOf(object key)
         {
-            if(key is MultiKey multiKey)
+            if (key is MultiKey multiKey)
             {
                 return indexList.IndexOf(multiKey);
             }
-            if( key is object[] arr)
+            if (key is object[] arr)
             {
                 var tmp = new MultiKey(arr);
                 return indexList.IndexOf(tmp);
@@ -194,6 +234,37 @@
             for (int i = 0; i < indexList.Count; i++)
             {
                 yield return indexList[i];
+            }
+        }
+
+        public override object this[int index]
+        {
+            protected set
+            {
+                if (index < 0 || index >= indexList.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                }
+                var oldValue = indexList[index];
+                indexList[index] = (MultiKey)value;
+
+                // Cập nhật indexMap
+                if (indexMap.ContainsKey(oldValue))
+                {
+                    indexMap[oldValue].Remove(index);
+                    if (indexMap[oldValue].Count == 0)
+                    {
+                        indexMap.Remove(oldValue);
+                    }
+                }
+
+                if (!indexMap.ContainsKey((MultiKey)value))
+                {
+                    indexMap[(MultiKey)value] = new List<int>();
+                }
+                
+                indexMap[(MultiKey)value].Add(index);
+
             }
         }
     }

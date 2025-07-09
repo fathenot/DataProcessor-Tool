@@ -1,133 +1,153 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using DataProcessor.source.Index;
+using DataProcessor.source.UserSettings.DefaultValsGenerator;
+using DataProcessor.source.ValueStorage;
+using System.Collections;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace DataProcessor.source.GenericsSeries
 {
+    /// <summary>
+    /// Represents a collection of data values indexed by a customizable index type.
+    /// </summary>
+    /// <remarks>The <see cref="Series{DataType}"/> class provides functionality for managing and manipulating
+    /// a collection of data values indexed by a customizable index type. It supports operations such as filtering,
+    /// slicing, grouping, and aggregation. The series is thread-safe for read and write operations using a <see
+    /// cref="ReaderWriterLock"/> mechanism.  This class is designed to handle scenarios where data is associated with
+    /// non-numeric or complex indices, such as time-series data or categorical data. It allows for flexible indexing
+    /// and provides views for subsets of data, as well as group-based operations.</remarks>
+    /// <typeparam name="DataType">The type of data stored in the series. Must be a non-nullable type.</typeparam>
     public partial class Series<DataType> : ISeries<DataType> where DataType : notnull
     {
         private string? name;
-        private List<DataType> values;
-        private Dictionary<object, List<int>> indexMap;
-        private List<object> index;
-        private bool defaultIndex = false;
+        private GenericsStorage<DataType> values; // this is the storage of the series values
+        private IIndex index; // this is the index of the series, it can be any type of index
 
         //handle multi thread
         private ReaderWriterLock rwl = new ReaderWriterLock();
 
         // inner class
-        public class View
+
+        /// <summary>
+        /// Represents a view of a subset of data within a <see cref="Series{DataType}"/> object.
+        /// </summary>
+        /// <remarks>A <see cref="SeriesView"/> provides a filtered or sliced view of the data in a <see
+        /// cref="Series{DataType}"/>. It allows operations such as creating subviews based on specific indices or
+        /// slices, and converting the view back into a new <see cref="Series{DataType}"/> object. The view maintains a
+        /// reference to the original series and ensures that all indices in the view exist within the original
+        /// series.</remarks>
+        public class SeriesView
         {
             private Series<DataType> series;
             private List<object> index;
             private List<int> intIndexList = new List<int>();
+            private HashSet<object> indexSet = new HashSet<object>(); // this is used to check if the index is exist in the view
 
-            public View(Series<DataType> series, List<object> index)
+            private SeriesView(Series<DataType> series, List<object> index, List<int> viewIndices)
             {
-                ArgumentNullException.ThrowIfNull(series);
-                ArgumentNullException.ThrowIfNull(index);
-
-                this.series = series;
-                this.index = new List<object>();
-
+                this.series = series ?? throw new ArgumentNullException(nameof(series));
+                if (index == null || index.Count == 0)
+                {
+                    throw new ArgumentException("Index cannot be null or empty", nameof(index));
+                }
+                this.index = new List<object>(index);
+                this.intIndexList = new List<int>(viewIndices);
+                this.indexSet = new HashSet<object>(index); // create a set for fast lookup
+            }
+            public SeriesView(Series<DataType> series, List<object> index)
+            {
+                this.series = series ?? throw new ArgumentNullException(nameof(series));
+                if (index == null || index.Count == 0)
+                {
+                    throw new ArgumentException("Index cannot be null or empty", nameof(index));
+                }
+                this.index = new List<object>(index.Count);
                 foreach (var idx in index)
                 {
-                    if (!series.indexMap.TryGetValue(index, out var positions))
+                    this.index.Add(idx);
+                    if (!series.index.Contains(idx))
                     {
-                        throw new IndexOutOfRangeException($"Index {index} out of range");
+                        throw new ArgumentException($"Index {idx} does not exist in the series", nameof(index));
                     }
-
-                    this.index.Add(index);
-                    this.intIndexList.AddRange(positions); // Tránh lặp nhiều lần
+                    foreach (int i in series.index.GetIndexPosition(idx))
+                    {
+                        this.intIndexList.Add(i);
+                    }
                 }
+
+                this.indexSet = new HashSet<object>(this.index); // create a set for fast lookup
             }
 
 
-            public View(Series<DataType> series, (object start, object end, int step) slice)
+            public SeriesView(Series<DataType> series, (object start, object end, int step) slice)
             {
-                Supporter.OrderedSet<int> removedDuplicateIdx = new Supporter.OrderedSet<int>();
-                // check valid argument
-                ArgumentNullException.ThrowIfNull(series);
-                if (slice.step == 0) throw new ArgumentException("step must not be 0");
-                if (!series.indexMap.TryGetValue(slice.start, out var startList))
-                    throw new ArgumentException("start is not exist");
-                if (!series.indexMap.TryGetValue(slice.end, out var endList))
-                    throw new ArgumentException("end is not exist");
+                if (series == null) throw new ArgumentNullException(nameof(series));
+                if (slice.step == 0) throw new ArgumentException("step must not be 0", nameof(slice.step));
+                if (!series.index.Contains(slice.start) || !series.index.Contains(slice.end)) { throw new ArgumentException("start or end is not exist"); }
 
-                // main logic of the method
-                this.index = new List<object>();
                 this.series = series;
 
-                List<ValueTuple<int, int>> position = new List<(int, int)>();
-                for (int i = 0; i < Math.Min(startList.Count, endList.Count); i++)
-                {
-                    position.Add((startList[i], endList[i]));
-                }
 
-                // generate index
-                foreach (var pair in position)
+                int startIndex = series.index.FirstPositionOf(slice.start);
+                int endIndex = series.index.FirstPositionOf(slice.end);
+
+                this.index = new List<object>((endIndex - startIndex) / slice.step + 1);
+                this.intIndexList = new List<int>();
+                this.indexSet = new HashSet<object>(); // create a set for fast lookup
+
+                if (slice.step > 0)
                 {
-                    if (slice.step > 0)
+                    for (int i = startIndex; i <= endIndex; i += slice.step)
                     {
-                        for (int i = pair.Item1; i <= pair.Item2; i += slice.step)
-                        {
-                            if (removedDuplicateIdx.Add(i))
-                            {
-                                index.Add(series.index[i]);
-                                this.intIndexList.Add(i);
-                            }
-                        }
+                        this.index.Add(series.index[i]);
+                        this.intIndexList.Add(i);
+                        this.indexSet.Add(series.index[i]);
                     }
-                    if (slice.step < 0)
+                }
+                else
+                {
+                    for (int i = startIndex; i >= endIndex; i += slice.step)
                     {
-                        for (int i = pair.Item1; i >= pair.Item2; i += slice.step)
-                        {
-                            if (removedDuplicateIdx.Add(i))
-                            {
-                                index.Add(series.index[i]);
-                                this.intIndexList.Add(i);
-                            }
-                        }
+                        this.index.Add(series.index[i]);
+                        this.intIndexList.Add(i);
+                        this.indexSet.Add(series.index[i]);
                     }
                 }
             }
 
-            public View GetView(List<object> subIndex) // change the view
+            /// <summary>
+            /// Creates a new <see cref="SeriesView"/> based on the specified subset of indices.
+            /// </summary>
+            /// <remarks>This method filters the current view to include only the specified indices.
+            /// The resulting view will contain the subset of data corresponding to the provided indices.</remarks>
+            /// <param name="slice">A list of indices to include in the new view. Each index must exist in the current view.</param>
+            /// <returns>A new <see cref="SeriesView"/> containing the specified indices.</returns>
+            /// <exception cref="ArgumentException">Thrown if any index in <paramref name="slice"/> does not exist in the current view.</exception>
+            public SeriesView GetView(List<object> slice) // change the view
             {
-                if (subIndex.Any(v => !this.index.Contains(v)))
+                List<object> newIndex = new List<object>(slice.Count);
+                List<int> newIntIndexList = new List<int>();
+
+                foreach (var idx in slice)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(subIndex),"Sub index contains values not in the current View");
+                    if (!this.indexSet.Contains(idx)) throw new ArgumentException($"Index {idx} does not exist in the view", nameof(slice));
+                    newIndex.Add(idx);
+                    foreach (int i in this.series.index.GetIndexPosition(idx))
+                    {
+                        if (this.intIndexList.Contains(i)) newIntIndexList.Add(i);
+                    }
                 }
-              
-                this.index = new List<object> { subIndex };
-                return this;
+                return new SeriesView(this.series, newIndex, newIntIndexList);
             }
             public Series<DataType> ToSeries(string? name = null)
             {
-                List<DataType>values = new List<DataType>();
-                foreach (var idx in this.intIndexList)
-                {
-                    values.Add(this.series.values[idx]);
-                }
-                return new Series<DataType>(name, values, this.index);
+                return new Series<DataType>(
+                    this.intIndexList.Select(idx => (DataType)this.series.values.GetValue(idx)).ToList(),
+                    name,
+                    this.index.ToList()
+                );
             }
 
-            public void UpdateValue(object indexx, DataType newValue)
-            {
-                if (!index.Contains(index))
-                    throw new KeyNotFoundException($"Index:{index} not in View");
-
-                // Chỉ cập nhật những phần tử thuộc View
-                this.series = ToSeries(this.series.name);
-                foreach (var pos in series.indexMap[index])
-                {
-                    series.values[pos] = newValue;
-                }
-            }
-
-            public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
+            public SeriesView GetView((object start, object end, int step) slice) // this just change view of the current vỉew
             {
                 if (series == null) throw new ArgumentNullException();
                 if (slice.step == 0) throw new ArgumentException("step must not be 0");
@@ -179,40 +199,26 @@ namespace DataProcessor.source.GenericsSeries
 
             public IEnumerator<DataType> GetValueEnumerator()
             {
-                foreach (var idx in this.index)
-                {
-                    if (this.series.indexMap.TryGetValue(idx, out var positions))
-                    {
-                        foreach (var pos in positions)
-                        {
-                            if (this.intIndexList.Contains(pos))
-                                yield return this.series.Values[pos];
-                        }
-                    }
-                }
+                return this.intIndexList.Select(idx => this.series.values.GetValue(idx)).Cast<DataType>()
+                   .GetEnumerator();
             }
 
             public IEnumerator<object> GetIndexEnumerator()
             {
-                foreach (var idx in this.index)
-                {
-                    yield return idx;
-                }
+                return this.index.GetEnumerator();
             }
 
             public override string ToString()
             {
-                var sb = new StringBuilder();
-                sb.AppendLine("Index | Value");
-                sb.AppendLine("--------------");
-                foreach (var idx in this.index)
+                var stngBuilder = new StringBuilder();
+                stngBuilder.AppendLine($"SeriesView of {series.Name ?? "Unnamed Series"}");
+                stngBuilder.AppendLine("Index | Value");
+                stngBuilder.AppendLine("--------------");
+                for (int i = 0; i < this.intIndexList.Count; i++)
                 {
-                    foreach (var val in this.series[idx])
-                    {
-                        sb.AppendLine($"{idx,-6} | {val?.ToString() ?? "null"}");
-                    }
+                    stngBuilder.AppendLine($"{this.index[i],5} | {this.series.values.GetValue(this.intIndexList[i])?.ToString() ?? "null"}");
                 }
-                return sb.ToString();
+                return stngBuilder.ToString();
             }
         }
         public class GroupView
@@ -240,35 +246,37 @@ namespace DataProcessor.source.GenericsSeries
                 var indexes = new List<object>(indices.Length);
                 foreach (var idx in indices)
                 {
-                    values.Add(this.source.values[idx]);
+                    values.Add((DataType)this.source.values.GetValue(idx));
                     indexes.Add(this.source.index[idx]);
                 }
-                return new Series<DataType>(newName, values, indexes);
+                return new Series<DataType>(values, newName, indexes);
             }
-            public Dictionary<object, DataType> Sum()
+            public Dictionary<object, DataType> Sum(ICalculator<DataType>? aggregator, IDefaultValueGenerator<DataType>? defaultValueGenerator = null)
             {
+                // check valid arguments
+                if (aggregator == null)
+                {
+                    throw new ArgumentException("Aggregator cannot be null. Please provide a valid aggregator.");
+                }
                 var result = new Dictionary<object, DataType>();
 
                 foreach (var kvp in groups)
                 {
                     object key = kvp.Key;
                     int[] indices = kvp.Value;
+                    DataType sụm = defaultValueGenerator != null ? defaultValueGenerator.GenerateDefaultValue() : default(DataType);
 
-                    dynamic? sum = default(DataType);
-                    foreach (var idx in indices)
+                    if (aggregator != null)
                     {
-                        if (this.source.values[idx] != null)
+                        foreach (var idx in indices)
                         {
-                            sum += (dynamic)this.source.values[idx];
+                            if (this.source.values[idx] != null)
+                            {
+                                sụm = aggregator.Add(sụm, (DataType)this.source.values.GetValue(idx));
+                            }
                         }
-
-                        if (this.source.values[idx] is object value && value != DBNull.Value)
-                        {
-                            sum += (dynamic)value;
-                        }
+                        result[key] = sụm;
                     }
-
-                    result[key] = sum;
                 }
 
                 return result;
@@ -284,85 +292,38 @@ namespace DataProcessor.source.GenericsSeries
             }
 
         }
-        //constructor     
-        public Series()
+
+        public sealed class GenericsSeriesEnumerator<DataType> : IEnumerator<DataType>
         {
-            this.name = "";
-            this.indexMap = new Dictionary<object, List<int>>();
-            this.values = new List<DataType>();
-            this.index = new List<object> { };
-        }
-        public Series(string? name, List<DataType> values, List<object>? index = null)
-        {
-            this.name = name;
-            if (values == null)
+            private readonly Series<DataType> series;
+            private int _currentIndex = -1;
+
+            public GenericsSeriesEnumerator(Series<DataType> series)
             {
-                this.values = new List<DataType>();
-            }
-            else
-            {
-                this.values = new List<DataType>(values);
+                this.series = series;
             }
 
-            // handle index
-            indexMap = new Dictionary<object, List<int>>();
-            if (index == null)
-            {
-                this.index = new List<object>();
-                for (int i = 0; i < this.values.Count; i++)
-                {
-                    indexMap[i] = new List<int> { i };
-                    this.index.Add(i);
-                }
-            }
-            else
-            {
-                if (index.Count != this.values.Count)
-                {
-                    throw new ArgumentException("index size must be same as the value size");
-                }
-                for (int i = 0; i < index.Count; i++)
-                {
-                    var key = index[i];
-                    if (!indexMap.TryGetValue(key, out List<int>? value))
-                    {
-                        value = new List<int>();
-                        indexMap[key] = value;
-                    }
+            public DataType Current => (DataType)series.values.GetValue(_currentIndex);
 
-                    value.Add(i);
-                }
-                this.index = new List<object>(index);
+            object IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                _currentIndex++;
+                return _currentIndex < series.Count;
             }
 
-        }
-        public Series(Series<DataType> other)
-        {
-            Supporter.CheckNull(other);
-            this.name = other.name;
-            this.values = new List<DataType>((IEnumerable<DataType>)other.Values);
-            this.indexMap = new Dictionary<object, List<int>>(other.indexMap);
-            this.index = new List<object>(other.index);
-        }
-        public Series(Tuple<string?, List<DataType>> KeyAndValues)
-        {
-            Supporter.CheckNull(KeyAndValues);
-            this.name = KeyAndValues.Item1;
-            if (KeyAndValues.Item2 == null)
+            public void Reset()
             {
-                this.values = new List<DataType>();
-            }
-            else
-            {
-                this.values = new List<DataType>(KeyAndValues.Item2);
+                _currentIndex = -1;
             }
 
-            indexMap = new Dictionary<object, List<int>>();
-            this.index = Enumerable.Range(0, values.Count - 1).Cast<object>().ToList();
-            for (int i = 0; i < values.Count; i++)
-            {
-                indexMap[i] = new List<int> { i };
+            public void Dispose()
+            { 
+                //no op
             }
         }
+
+        internal record struct IndexedValue(DataType Value, object Index);
     }
 }

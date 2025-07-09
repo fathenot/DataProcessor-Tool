@@ -5,7 +5,7 @@ using Xunit;
 using DataProcessor.source.NonGenericsSeries;
 using DataProcessor.source.ValueStorage;
 
-namespace test
+namespace test.TestNonGenericsSeries
 {
     public class TestStorageWithTypeInfer
     {
@@ -29,6 +29,8 @@ namespace test
             new object[] { new object[] { 1.0f, 2.0f }, typeof(double), typeof(DoubleValueStorage) },
             new object[] { new object[] { new DateTime(2020, 1, 1) }, typeof(DateTime), typeof(DateTimeStorage) },
             new object[] { new object[] { Guid.NewGuid() }, typeof(Guid), typeof(ObjectValueStorage) },
+            new object[] { new object[] { "Hello", "World" }, typeof(string), typeof(StringStorage) },
+            new object[] { new object[] { null, true, false }, typeof(bool), typeof(BoolStorage) },
         };
 
         [Theory]

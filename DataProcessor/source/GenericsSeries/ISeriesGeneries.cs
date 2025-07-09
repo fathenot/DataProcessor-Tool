@@ -12,8 +12,6 @@ namespace DataProcessor.source.GenericsSeries
         IReadOnlyList<DataType> Values { get; }
         Type DType { get; }
         bool IsReadOnly { get; }
-        void Clear();
         int Count { get; }
-        IList<int> Find(DataType item);
     }
 }
