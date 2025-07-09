@@ -75,7 +75,7 @@ namespace test.TestIndex
             // Arrange
             var dateTimeIndex = new DateTimeIndex(new List<DateTime> { new DateTime(2023, 10, 1), new DateTime(2023, 10, 2), new DateTime(2023, 10, 3) });
             // Act
-            var slicedIndex = dateTimeIndex.Slice(0, 3, 2);
+            var slicedIndex = dateTimeIndex.Slice(0, 2, 2);
             // Assert
             Assert.Equal(2, slicedIndex.Count);
             Assert.Contains(new DateTime(2023, 10, 1), slicedIndex);
