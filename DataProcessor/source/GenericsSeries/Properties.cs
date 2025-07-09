@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections;
 
 namespace DataProcessor.source.GenericsSeries
 {
@@ -17,24 +12,25 @@ namespace DataProcessor.source.GenericsSeries
         {
             get
             {
-                if (!this.indexMap.TryGetValue(index, out List<int>? indexNum))
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
-                List<DataType> res = new List<DataType>();
-                foreach (var idx in indexNum)
+                // Check if index is valid
+                var positions = this.index.GetIndexPosition(index);
+                List<DataType> result = new List<DataType>();
+                Converter<object, DataType> converter = (x) => (DataType)x;
+                foreach (var item in positions)
                 {
-                    res.Add(this.values[idx]);
+                    result.Add(converter(values.GetValue(item)));
                 }
-                return res;
+                return result;
             }
         }
         public Type DType => typeof(DataType);
-        public IReadOnlyList<DataType> Values => values.AsReadOnly();
-        public IReadOnlyList<object> Index => this.index;
+        public IReadOnlyList<DataType> Values => values.Cast<DataType>().ToList();
+        public IReadOnlyList<object> Index => this.index.IndexList;
 
         // iterator
         public IEnumerator<DataType> GetEnumerator()
         {
-            return values.GetEnumerator();
+            return values.Cast<DataType>().GetEnumerator();
         }
         IEnumerator IEnumerable.GetEnumerator()
         {

@@ -16,7 +16,7 @@ namespace DataProcessor.source.GenericsSeries
         {
             var result = new List<IndexedValue>(values.Count);
             for (int i = 0; i < values.Count; i++)
-                result.Add((new IndexedValue((DataType)values[i], index[i])));
+                result.Add((new IndexedValue((DataType)values.GetValue(i), index[i])));
             return result;
         }
     }
