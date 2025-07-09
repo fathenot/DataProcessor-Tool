@@ -12,9 +12,7 @@ namespace DataProcessor.source.NonGenericsSeries
         public IReadOnlyList<object?> Values { get; }
         public Type DataType { get; }
         public bool IsReadOnly { get; }
-        public void Clear();
         public int Count { get; }
         public ISeries AsType(Type NewType, bool ForceCast = false);
-        public List<int> Find(object? item);
     }
 }

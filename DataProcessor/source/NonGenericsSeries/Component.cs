@@ -1,447 +1,439 @@
-﻿using System.Collections;
+﻿using DataProcessor.source.Index;
+using DataProcessor.source.ValueStorage;
+using System.Collections;
+using System.ComponentModel;
 using System.Text;
-
 namespace DataProcessor.source.NonGenericsSeries
 {
     public partial class Series : ISeries
     {
+        /// <summary>
+        /// this partial class contains the core components of the Series class aka the data structure and inner classes
+        /// </summary>
+
         private string? seriesName;
-        private List<object?> values;
-        private Dictionary<object, List<int>> indexMap;
-        private List<object> index;
-        private IndexSynchronizer synchronizer = new IndexSynchronizer();
-        private Type dataType;
+        private IIndex index;
+        private AbstractValueStorage values;
+        public Type dataType; // data type of the series, can be null if empty or not set
 
         // handle multi threads, this will be implemented in the future
         private readonly Semaphore writeSemaphore = new Semaphore(1, 1);
         private ReaderWriterLock readerWriterLock = new ReaderWriterLock();
 
-        // inner class
-        public class View : IndexChangeListener, IDisposable
+        /// <summary>
+        /// Represents a sliced view of a <see cref="Series"/> object, allowing access to a subset of its
+        /// data.
+        /// </summary>
+        /// <remarks>A <see cref="SeriesView"/> provides a way to work with a subset of the data in a <see
+        /// cref="Series"/>. It supports slicing by index ranges, specific index values, or step intervals. The view
+        /// maintains a mapping between the original series indices and the indices in the view, enabling efficient
+        /// lookups.  This class is enumerable, allowing iteration over the values in the view. It also provides methods
+        /// for creating new views based on slices or converting the view back into a <see cref="Series"/>.</remarks>
+        public class SeriesView : IEnumerable<object?>
         {
-            private List<object> index;
-            private Series series;
-            private List<int> convertedToIntIdx = new List<int>();
-            private bool shouldSyncIndex = true;
+            private readonly Series _series;
+            private readonly List<int> _indices; // positions in the original series
+            private readonly List<object> _viewIndices; // corresponding indices
+            private readonly HashSet<object?> _viewIndexSet; // for fast lookup
 
-            // properties
-            public IReadOnlyList<object> Index => index;
-            public bool IsView { get; private set; }
-            public int Count => convertedToIntIdx.Count;
-
-            // methods
-            public View(Series series, List<object> indices)
+            // Primary constructor for internal use
+            internal SeriesView(Series series, List<int> indices, List<object> viewIndices)
             {
-                ArgumentNullException.ThrowIfNull(series);
-                ArgumentNullException.ThrowIfNull(indices);
-                this.index = new List<object>();
-                this.series = series;
-                foreach (var index in indices)
-                {
-                    if (!series.indexMap.TryGetValue(index, out var positions))
-                    {
-                        throw new ArgumentException($"{index} is not in the index of the series");
-                    }
-
-                    this.index.Add(index);
-                    this.convertedToIntIdx.AddRange(positions); // Tránh lặp nhiều lần
-                }
-                series.synchronizer.RegisterView(this);
+                _series = series;
+                _indices = indices;
+                _viewIndices = viewIndices;
+                _viewIndexSet = new HashSet<object?>(_viewIndices);
             }
 
-            public View(Series series, (object start, object end, int step) slice)
+            // Constructor using (start, end, step)
+            public SeriesView(Series series, (object start, object end, int step) slices)
             {
-                //check valid argument
-                ArgumentNullException.ThrowIfNull(series);
-                if (slice.step == 0) throw new ArgumentException("step must not be 0");
-                if (!series.index.Contains(slice.start)) { throw new ArgumentException($"start index {slice.start} does not exist"); }
-                if (!series.index.Contains(slice.end)) { throw new ArgumentException($"end index {slice.end} does not exist"); }
+                if (!series.index.Contains(slices.start) || !series.index.Contains(slices.end))
+                    throw new ArgumentException("Start or end index does not exist in the series index.");
+                if (slices.step == 0)
+                    throw new ArgumentException("Step cannot be zero.");
 
-                // main method logic
-                Supporter.OrderedSet<int> removedDuplicatedIndex = new Supporter.OrderedSet<int>();
-                this.index = new List<object>();
-                this.series = series;
-                List<ValueTuple<int, int>> pairPosition = new List<(int, int)>();
-                for (int i = 0; i < Math.Min(series.indexMap[slice.start].Count, series.indexMap[slice.end].Count); i++)
-                {
-                    pairPosition.Add((series.indexMap[slice.start][i], series.indexMap[slice.end][i]));
-                }
+                _series = series;
+                _indices = new List<int>();
+                _viewIndices = new List<object>();
 
-                // generate index
-                foreach (var pair in pairPosition)
+                int startIdx = series.index.FirstPositionOf(slices.start);
+                int endIdx = series.index.FirstPositionOf(slices.end);
+
+                if (slices.step > 0)
                 {
-                    if (slice.step > 0)
+                    for (int i = startIdx; i <= endIdx; i += slices.step)
                     {
-                        for (int i = pair.Item1; i <= pair.Item2; i += slice.step)
-                        {
-                            if (removedDuplicatedIndex.Add(i))
-                            {// If the conversion to integer index changes, add the corresponding index to the index list.
-                                index.Add(series.index[i]);
-                                this.convertedToIntIdx.Add(i);
-                            }
-
-                        }
-                    }
-                    if (slice.step < 0)
-                    {
-                        for (int i = pair.Item1; i >= pair.Item2; i += slice.step)
-                        {
-                            if (removedDuplicatedIndex.Add(i))
-                            {// If the conversion to integer index changes, add the corresponding index to the index list.
-                                index.Add(series.index[i]);
-                                this.convertedToIntIdx.Add(i);
-                            }
-                        }
-                    }
-
-                }
-                series.synchronizer.RegisterView(this);
-            }
-
-            public Series ToSeries(string? seriesName = null)// Tạo một Series mới từ các giá trị trong view, giữ nguyên index và datatype gốc
-
-            {
-                List<object?> data = new List<object?>();
-                foreach (var i in this.convertedToIntIdx)
-                {
-                    data.Add(series.values[i]);
-                }
-
-                var result = new Series(data, seriesName, this.index)
-                {
-                    dataType = series.dataType// bảo toàn kiểu dữ liệu gốc tránh bị suy luận kiểu làm đổi kiểu dữ liệu
-                };
-
-                return result;
-            }
-
-            public void UpdateValue(object index,List<object?> newValues, bool inPlace = false)
-            {
-                if (!this.index.Contains(index))
-                {
-                    throw new IndexOutOfRangeException($"Index {index} not in view");
-                }
-                if (newValues.Count == 0)
-                {
-                    return;
-                }
-                List<int> positions = series.indexMap[index];
-                if (newValues.Count != positions.Count && newValues.Count != 1)
-                {
-                    throw new InvalidOperationException($"index has {positions.Count} value but there are {newValues.Count} items ready for replace");
-                }
-                
-                shouldSyncIndex = false;
-                if (!inPlace)
-                {
-                    IsView = false;
-                    this.series = this.ToSeries(null);
-                    if (newValues.Count == 1)
-                    {
-                        foreach (var position in positions)
-                        {
-                            series.values[position] = newValues[0];
-                        }
-                    }
-                    else
-                    {
-                        for (int i = 0; i < positions.Count; i++)
-                        {
-                            series.values[i] = newValues[i];
-                        }
+                        _indices.Add(i);
+                        _viewIndices.Add(series.index.GetIndex(i));
                     }
                 }
                 else
                 {
-                    IsView = true;
-                    if (newValues.Count == 1)
+                    for (int i = startIdx; i >= endIdx; i += slices.step)
                     {
-                        foreach (var position in positions)
-                        {
-                            series.values[position] = newValues[0];
-                        }
-                    }
-                    else
-                    {
-                        for (int i = 0; i < positions.Count; i++)
-                        {
-                            series.values[i] = newValues[i];
-                        }
+                        _indices.Add(i);
+                        _viewIndices.Add(series.index.GetIndex(i));
                     }
                 }
-                    
+
+                _viewIndexSet = new HashSet<object?>(_viewIndices);
             }
 
-            public View GetView((object start, object end, int step) slice) // this just change view of the current vỉew
+            // Constructor using a list of index values
+            public SeriesView(Series series, List<object> slice)
             {
-                // synchroization with the origin series
-                for (int i = 0; i < this.convertedToIntIdx.Count; i++)
+                _series = series;
+                _indices = new List<int>();
+                _viewIndices = new List<object>();
+
+                foreach (var item in slice)
                 {
-                    foreach (var key in series.indexMap.Keys)
+                    if (!series.index.Contains(item))
+                        throw new ArgumentException($"Index {item} does not exist in the series index.");
+
+                    foreach (var pos in series.index.GetIndexPosition(item))
                     {
-                        if (!series.indexMap[key].Contains(this.convertedToIntIdx[i]))
-                        {
-                            this.index[i] = key;
-                        }
+                        _indices.Add(pos);
+                        _viewIndices.Add(series.index.GetIndex(pos));
                     }
                 }
 
-                // check valid argument
-                if (slice.step == 0) throw new ArgumentException("step must not be 0");
-                if (!this.index.Contains(slice.start)) { throw new ArgumentException("start is not exist"); }
-                if (!this.index.Contains(slice.end)) { throw new ArgumentException("end is not exist"); }
-
-                List<object> newIndex = new List<object>();
-                Supporter.OrderedSet<int> NewConvertedToIntIdx = new Supporter.OrderedSet<int>();
-
-                // find start
-                var startIndex = this.index
-                                .Select((value, index) => (value, index))  // Đính kèm index vào từng phần tử
-                                .Where(pair => Equals(pair.value, slice.start))       // Lọc ra các phần tử có giá trị bằng target
-                                .Select(pair => pair.index)                // Lấy index của các phần tử đó
-                                .ToList();
-                var endIndex = this.index
-                              .Select((value, index) => (value, index))  // Đính kèm index vào từng phần tử
-                              .Where(pair => Equals(pair.value, slice.end))       // Lọc ra các phần tử có giá trị bằng target
-                              .Select(pair => pair.index)                // Lấy index của các phần tử đó
-                              .ToList();
-                for (int i = 0; i < Math.Min(startIndex.Count, endIndex.Count); i++)
-                {
-                    int startPos = startIndex[i];
-                    int endPos = endIndex[i];
-
-                    if (slice.step > 0)
-                    {
-                        for (int j = startPos; j <= endPos; j += slice.step)
-                        {
-                            if (NewConvertedToIntIdx.Add(j))
-                                newIndex.Add(this.index[j]);
-                        }
-                    }
-                    else
-                    {
-                        for (int j = startPos; j >= endPos; j += slice.step)
-                        {
-                            if (NewConvertedToIntIdx.Add(j))
-                                newIndex.Add(this.index[j]);
-                        }
-                    }
-                }
-
-                this.index = newIndex;
-                this.convertedToIntIdx = NewConvertedToIntIdx.ToList();
-                GC.Collect();
-                return this;
+                _viewIndexSet = new HashSet<object?>(_viewIndices);
             }
 
-            public View GetView(List<object> subIndex) // this change the view of the current view
+            // Factory for creating a sliced view from another view
+            public SeriesView SliceView(List<object> slice)
             {
-                // synchroization with the origin series
-                if (this.index != series.index)
-                {
-                    this.index = new List<object> { series.index };
-                }
+                var newIndices = new List<int>();
+                var newViewIndices = new List<object>();
 
-                // main logic method
-                if (subIndex.Any(v => !this.index.Contains(v)))
-                    throw new ArgumentOutOfRangeException(nameof(subIndex), "Sub-index contains values not in the current View");
-                this.index = new List<object> { subIndex };
-                List<int> ChangedIntIdx = new List<int>();
-                foreach (var item in subIndex)
+                var requested = new HashSet<object>(slice);
+
+                for (int i = 0; i < _indices.Count; i++)
                 {
-                    var positions = series.indexMap[item];
-                    foreach (var position in positions)
+                    var idx = _viewIndices[i];
+                    if (requested.Contains(idx))
                     {
-                        if (this.convertedToIntIdx.Contains(position))
-                        {
-                            ChangedIntIdx.Add(position);
-                        }
+                        newIndices.Add(_indices[i]);
+                        newViewIndices.Add(idx);
                     }
                 }
-                this.convertedToIntIdx.Clear();
-                this.convertedToIntIdx.AddRange(ChangedIntIdx);
-                return this;
+
+                return new SeriesView(_series, newIndices, newViewIndices);
             }
 
-            public IEnumerator<object?> GetValueEnumerator()
+            /// <summary>
+            /// Creates a new <see cref="SeriesView"/> by slicing the current view based on the specified range and
+            /// step.
+            /// </summary>
+            /// <remarks>The slicing operation supports both positive and negative step values. A
+            /// positive step slices elements from <paramref name="slices.start"/> to <paramref name="slices.end"/> in
+            /// ascending order, while a negative step slices elements in descending order.</remarks>
+            /// <param name="slices">A tuple containing the start index, end index, and step size for slicing. <paramref
+            /// name="slices.start"/> and <paramref name="slices.end"/> must exist in the current view index. <paramref
+            /// name="slices.step"/> specifies the interval between elements in the slice and cannot be zero.</param>
+            /// <returns>A new <see cref="SeriesView"/> containing the elements from the current view that match the specified
+            /// slicing criteria.</returns>
+            /// <exception cref="ArgumentException">Thrown if <paramref name="slices.start"/> or <paramref name="slices.end"/> does not exist in the view
+            /// index, or if <paramref name="slices.step"/> is zero.</exception>
+            public SeriesView SliceView((object start, object end, int step) slices)
             {
-                foreach (var idx in this.index)
+                if (!this._viewIndexSet.Contains(slices.start) || !this._viewIndexSet.Contains(slices.end))
+                    throw new ArgumentException("Start or end index does not exist in the view index.");
+                if (slices.step == 0)
+                    throw new ArgumentException("Step cannot be zero.");
+                List<int> newIndices = new List<int>();
+                List<object> newViewIndices = new List<object>();
+                int startIdx = _viewIndices.IndexOf(slices.start);
+                int endIdx = _viewIndices.IndexOf(slices.end);
+                if (slices.step > 0)
                 {
-                    if (series.indexMap.TryGetValue(idx, out var positions))
+                    for (int i = startIdx; i <= endIdx; i += slices.step)
                     {
-                        foreach (var pos in positions)
-                        {
-                            if (this.convertedToIntIdx.Contains(pos))
-                                yield return series.Values[pos];
-                        }
+                        newIndices.Add(_indices[i]);
+                        newViewIndices.Add(_viewIndices[i]);
+                    }
+                }
+                else
+                {
+                    for (int i = startIdx; i >= endIdx; i += slices.step)
+                    {
+                        newIndices.Add(_indices[i]);
+                        newViewIndices.Add(_viewIndices[i]);
+                    }
+                }
+                return new SeriesView(_series, newIndices, newViewIndices);
+            }
+
+            /// <summary>
+            /// Creates a new <see cref="Series"/> instance containing the values from the current view.
+            /// </summary>
+            /// <remarks>The resulting <see cref="Series"/> is constructed using the indices and
+            /// values from the current view, ensuring that the data type and other metadata are preserved. The
+            /// operation creates a copy of the data to ensure immutability.</remarks>
+            /// <param name="name">An optional name for the resulting <see cref="Series"/>. If <paramref name="name"/> is <see
+            /// langword="null"/>, the name of the original series is used.</param>
+            /// <returns>A new <see cref="Series"/> containing the values from the current view, with the specified name and
+            /// other properties copied from the original series.</returns>
+            public Series ToSeries(string? name = null)
+            {
+                List<object?> values = new List<object?>(_indices.Count);
+                foreach (var pos in _indices)
+                {
+                    values.Add(_series.values.GetValue(pos));
+                }
+                return new Series(values, index: _viewIndices, dtype: _series.dataType, name: name ?? _series.seriesName, copy: true);
+            }
+
+            // Indexer: return all values mapped to index, filtered by current view
+            public IEnumerable<object?> this[object index]
+            {
+                get
+                {
+                    if (!_viewIndexSet.Contains(index))
+                        throw new ArgumentException($"Index {index} does not exist in the view.");
+
+                    foreach (var pos in _series.index.GetIndexPosition(index))
+                    {
+                        if (_indices.Contains(pos))
+                            yield return _series.values.GetValue(pos);
                     }
                 }
             }
-
-            public IEnumerator<object> GetIndexEnumerator()
+            public IEnumerator<object?> GetEnumerator()
             {
-                foreach (var idx in this.index)
-                {
-                    yield return idx;
-                }
+                foreach (var pos in _indices)
+                    yield return _series.values.GetValue(pos);
             }
 
+            IEnumerator<object?> IEnumerable<object?>.GetEnumerator() => GetEnumerator();
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+
+            /// <summary>
+            /// Returns a string representation of the series view, including the series name, indices, and values.
+            /// </summary>
+            /// <remarks>The returned string includes a formatted table with the index and
+            /// corresponding value for each element in the series view. If the series name is not set, "Unnamed" is
+            /// used as the default name. Values that are null are represented as "null" in the output.</remarks>
+            /// <returns>A string that represents the series view, including the series name, indices, and values.</returns>
             public override string ToString()
             {
                 var sb = new StringBuilder();
+                sb.AppendLine($"Series View: {_series.seriesName ?? "Unnamed"}");
                 sb.AppendLine("Index | Value");
                 sb.AppendLine("--------------");
-
-                foreach (int IntIdx in this.convertedToIntIdx)
+                for (int i = 0; i < _indices.Count; i++)
                 {
-                    sb.AppendLine($"{series.index[IntIdx],-6} | {series.values[IntIdx]?.ToString() ?? "null"}");
+                    sb.AppendLine($"{_viewIndices[i],5} | {_series.values.GetValue(_indices[i])?.ToString() ?? "null"}");
                 }
                 return sb.ToString();
             }
 
-            public void UpdateIndex()
-            {
-                if (shouldSyncIndex)
-                {
-                    index.Clear();
-                    foreach (var IntIndex in this.convertedToIntIdx)
-                    {
-                        foreach (var seriesIndex in series.indexMap.Keys)
-                        {
-                            if (series.indexMap[seriesIndex].Contains(IntIndex))
-                            {
-                                index.Add(seriesIndex);
-                            }
-                        }
-                    }
-                }              
-            }
+            // Count of elements in the view
+            public int Count => _indices.Count;
 
-            void IDisposable.Dispose()
-            {
-                
-            }
+            // Optional: expose view indices and positions for external inspection if needed
+
+            /// <summary>
+            /// Gets a read-only collection of indices. It presents the positions of the elements in the original series as integers.
+            /// </summary>
+            public IReadOnlyList<int> Indices => _indices;
+
+            /// <summary>
+            /// Gets a read-only collection of view indices. It presents the indices of the elements in the view original index of series as objects.
+            /// </summary>
+            public IReadOnlyList<object> ViewIndices => _viewIndices;
         }
 
-        public class GroupView(Series source, Dictionary<object, int[]> groupIndices)
+        /// <summary>
+        /// Represents a view of grouped data, providing functionality to retrieve, summarize, and count values based on
+        /// group keys.
+        /// </summary>
+        /// <remarks>The <see cref="GroupView"/> class is designed to work with a series of data and a
+        /// grouping structure that maps keys to indices. It provides methods to calculate summaries, count elements,
+        /// and access grouped values. This class is useful for scenarios where data needs to be analyzed or aggregated
+        /// based on predefined groupings.</remarks>
+        public class GroupView
         {
-            private readonly Dictionary<object, int[]> groups = groupIndices; // this only store the index of the series values
-            Series source = source;
-
-            // Lấy danh sách index của một nhóm
-            private ReadOnlyMemory<int> GetGroupIndices(object key)
+            private Series _series;
+            private Dictionary<object, int[]> _groups;
+            public GroupView(Series series, Dictionary<object, int[]> groups)
             {
-                return groups.TryGetValue(key, out var indices) ? indices.AsMemory() : ReadOnlyMemory<int>.Empty;
+                _series = series;
+                _groups = groups;
             }
+
+            /// <summary>
+            /// Retrieves the indices associated with the specified key.
+            /// </summary>
+            /// <param name="key">The key used to look up the group indices. Must not be <see langword="null"/>.</param>
+            /// <returns>A read-only memory segment containing the indices associated with the specified key. If the key is not
+            /// found, returns an empty <see cref="ReadOnlyMemory{T}"/>.</returns>
+            internal ReadOnlyMemory<int> GetGroupIndices(object key)
+            {
+                return _groups.TryGetValue(key, out var indices) ? indices.AsMemory() : ReadOnlyMemory<int>.Empty;
+            }
+
+            /// <summary>
+            /// Calculates the sum of values for each group and returns the results as a dictionary.
+            /// </summary>
+            /// <remarks>This method iterates through all groups and computes the sum of values
+            /// associated with each group. The resulting dictionary contains the group keys as keys and the computed
+            /// sums as values. Null indices in the series are excluded from the summation. It can handle custom datatype if the datatype supports
+            /// the '+' operator</remarks>
+            /// <returns>A dictionary where each key represents a group and the corresponding value is the sum of values for that
+            /// group. The value is dynamically typed based on the data type of the series.</returns>
             public Dictionary<object, object> Sum()
             {
                 var result = new Dictionary<object, object>();
-                foreach (var key in this.groups.Keys)
+                foreach (var key in this._groups.Keys)
                 {
-                    int[] indexes = this.groups[key];
-                    dynamic? sum = Activator.CreateInstance(type: this.source.dataType);
+                    int[] indexes = this._groups[key];
+                    dynamic? sum = Activator.CreateInstance(type: this._series.dataType);
+                    var nullIndices = this._series.values.NullIndices.ToList(); // get null indices from the series
+                    var converter = TypeDescriptor.GetConverter(this._series.dataType);
                     foreach (var idx in indexes)
                     {
-                        if (this.source.values[idx] != null && this.source.values[idx] != DBNull.Value)
-                            sum += this.source.values[idx];
+                        if (!nullIndices.Contains(idx)) // performance of this check is not optimal, but it is necessary to avoid null values in the sum
+                        {
+                            object? val = this._series.values.GetValue(idx);
+
+                            dynamic convertedVal = converter.ConvertFrom(val);
+                            sum += convertedVal;
+
+                        }
                     }
                     result.Add(key, sum);
                 }
                 return result;
             }
+
+            /// <summary>
+            /// Counts the number of elements in each group and returns the results as a dictionary.
+            /// </summary>
+            /// <returns>A dictionary where each key represents a group and the corresponding value is the count of elements in
+            /// that group.</returns>
             public Dictionary<object, uint> Count()
             {
                 var result = new Dictionary<object, uint>();
-                foreach (var kvp in groups)
+                foreach (var kvp in _groups)
                 {
                     result[kvp.Key] = (uint)kvp.Value.Length;
                 }
                 return result;
             }
-        }
 
-        //constructor
-        public Series(List<object?> values, string? seriesName = null, List<object>? index = null)
-        {
-            this.seriesName = seriesName;
-            this.values = new List<object?>(values);
-            this.indexMap = new Dictionary<object, List<int>>();
 
-            // Handle index and map
-            if (index != null)
+            /// <summary>
+            /// Gets the collection of keys used to group items.
+            /// </summary>
+            public IEnumerable<object> GroupKeys => _groups.Keys;
+
+            /// <summary>
+            /// Gets the collection of values associated with the specified key.
+            /// </summary>
+            /// <remarks>This indexer retrieves all values corresponding to the given key from the
+            /// underlying data structure. The returned collection may contain null values if the data source includes
+            /// null entries.</remarks>
+            /// <param name="key">The key identifying the group of values to retrieve.</param>
+            /// <returns>An enumerable collection of values associated with the specified key. If the key does not exist, a <see
+            /// cref="KeyNotFoundException"/> is thrown.</returns>
+            /// <exception cref="KeyNotFoundException">Thrown if the specified <paramref name="key"/> does not exist in the collection.</exception>
+            public IEnumerable<object?> this[object key]
             {
-                this.index = new List<object>(index);
-                for (int i = 0; i < index.Count; i++)
+                get
                 {
-                    // Add index to map (if not exists, create new entry)
-                    if (!indexMap.TryGetValue(index[i], out var list))
+                    if (!_groups.ContainsKey(key))
+                        throw new KeyNotFoundException($"Group key '{key}' not found.");
+                    foreach (var index in _groups[key])
                     {
-                        list = new List<int>();
-                        indexMap[index[i]] = list;
+                        yield return _series.values.GetValue(index);
                     }
-                    list.Add(i);
-                }
-
-                // Ensure values list is extended to match the index size
-                while (values.Count < index.Count)
-                {
-                    values.Add(null);
                 }
             }
-            else
-            {
-                this.index = new List<object>(Enumerable.Range(0, values.Count).Cast<object>());
-                for (int i = 0; i < values.Count; i++)
-                {
-                    indexMap[i] = new List<int> { i };
-                }
-            }
-
-            this.dataType = Support.InferDataType(this.values);
-        }
-        public Series(Series other)
-        {
-            Supporter.CheckNull(other);
-            this.seriesName = other.seriesName;
-            this.values = new List<object?>(other.values);
-            this.dataType = other.dataType;
-            this.index = new List<object>(other.index);
-
-            // Clone indexMap để tránh bị ảnh hưởng bởi object gốc
-            this.indexMap = other.indexMap.ToDictionary(
-                kvp => kvp.Key,
-                kvp => new List<int>(kvp.Value) // Clone danh sách vị trí
-            );
-        }
-        public Series(ValueTuple<string, List<object>> NameAndValues)
-        {
-            this.seriesName = NameAndValues.Item1;
-            this.values = new List<object?>(NameAndValues.Item2 ?? new List<object>());
-            this.dataType = Support.InferDataType(this.values);
-            indexMap = new Dictionary<object, List<int>>();
-            index = Enumerable.Range(0, values.Count - 1).Cast<object>().ToList();
-            for (int i = 0; i < values.Count; i++)
-            {
-                indexMap[i] = new List<int> { i };
-            }
-        }
-        public Series()
-        {
-            this.seriesName = "";
-            this.values = new List<object?>();
-            this.index = new List<object>();
-            this.indexMap = new Dictionary<object, List<int>>();
-            this.dataType = typeof(object);
         }
 
-        // iterator
         public IEnumerator<object?> GetEnumerator()
         {
-            return this.values.GetEnumerator();
+            return new SeriesEnumerator(this);
         }
+
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return values.GetEnumerator();
+            return GetEnumerator();
+        }
+
+        /// <summary>
+        /// Enumerates the elements of a <see cref="Series"/> collection.
+        /// </summary>
+        /// <remarks>This enumerator provides sequential access to the elements in a <see cref="Series"/>.
+        /// Use <see cref="MoveNext"/> to advance the enumerator to the next element and <see cref="Current"/>  to
+        /// retrieve the current element. The enumerator starts before the first element and must be  advanced before
+        /// accessing elements. Once the end of the collection is reached, <see cref="MoveNext"/>  will return <see
+        /// langword="false"/>.</remarks>
+        private sealed class SeriesEnumerator : IEnumerator<object?>
+        {
+            /// <summary>
+            /// Represents the series enumerator, which allows iteration over the values in a Series.
+            /// </summary>
+            private readonly Series _series;
+            private int _currentIndex = -1;
+            public SeriesEnumerator(Series series)
+            {
+                _series = series;
+            }
+
+            /// <summary>
+            /// Gets the current element in the collection.
+            /// </summary>
+            /// <remarks>The value of <see cref="Current"/> is undefined until the enumerator is
+            /// positioned on an element within the collection. Ensure the enumerator is properly initialized and
+            /// positioned before accessing this property.</remarks>
+            public object? Current => _series.values.GetValue(_currentIndex);
+
+            /// <summary>
+            /// Gets the current element in the collection being enumerated.
+            /// </summary>
+            object System.Collections.IEnumerator.Current => Current!;
+
+            /// <summary>
+            /// Advances the enumerator to the next element in the series.
+            /// </summary>
+            /// <remarks>This method increments the internal index and checks whether the index is
+            /// within the bounds of the series. It should be called repeatedly to iterate through all elements in the
+            /// series.</remarks>
+            /// <returns><see langword="true"/> if the enumerator successfully advanced to the next element;  otherwise, <see
+            /// langword="false"/> if the end of the series has been reached.</returns>
+            public bool MoveNext()
+            {
+                _currentIndex++;
+                return _currentIndex < _series.Count;
+            }
+
+            /// <summary>
+            /// Resets the internal state of the enumerator to its initial position, before the first element.
+            /// </summary>
+            /// <remarks>After calling this method, the enumerator must be advanced using <see
+            /// cref="MoveNext">  before accessing elements.</remarks>
+            public void Reset()
+            {
+                _currentIndex = -1;
+            }
+
+            /// <summary>
+            /// Releases all resources used by the current instance of the class.
+            /// </summary>
+            /// <remarks>Call this method when you are finished using the object to free up resources.
+            /// After calling <see cref="Dispose"/>, the object is in an unusable state and should not be
+            /// accessed.</remarks>
+            public void Dispose()
+            { // no operation}
+            }
         }
     }
 }

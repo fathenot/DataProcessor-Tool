@@ -5,17 +5,26 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DataProcessor.source.GenericsSeries;
+using DataProcessor.source.Index;
 
 namespace DataProcessor.source.NonGenericsSeries
 {
     public partial class Series
     {
+        /// <summary>
+        /// Groups the elements of the current object by their distinct indices.
+        /// </summary>
+        /// <remarks>This method creates a mapping of distinct indices to their corresponding positions
+        /// within the current object's index structure. The resulting grouping is returned as a <see cref="GroupView"/>
+        /// object, which provides access to the grouped data.</remarks>
+        /// <returns>A <see cref="GroupView"/> object containing the grouped elements, where each distinct index is mapped to an
+        /// array of positions.</returns>
         public GroupView GroupByIndex()
         {
             Dictionary<object, int[]> groups = new Dictionary<object, int[]>();
-            foreach (var Index in this.indexMap.Keys)
+            foreach (var Index in this.index.DistinctIndices())
             {
-                groups[Index] = this.indexMap[Index].ToArray();
+                groups[Index] = this.index.GetIndexPosition(Index).ToArray();
             }
             return new GroupView(this, groups);
         }
@@ -23,10 +32,16 @@ namespace DataProcessor.source.NonGenericsSeries
         public GroupView GroupByValue()
         {
             Dictionary<object, int[]> groups = new Dictionary<object, int[]>();
-            var removedDuplicate = new HashSet<object?>(this.values);
+            List<object?> allValues = new List<object?>();
+            for (int Index = 0; Index < values.Count; Index++)
+            {
+                allValues.Add(this.values.GetValue(Index));
+            }
+
+            var removedDuplicate = new HashSet<object?>(allValues);
             foreach (var Element in removedDuplicate)
             {
-                int[] indicies = this.values.Select((value, index) => new { value, index })
+                int[] indicies = allValues.Select((value, index) => new { value, index })
                                         .Where(x => Object.Equals(x, Element))
                                         .Select(x => x.index)
                                         .ToArray();
@@ -56,7 +71,7 @@ namespace DataProcessor.source.NonGenericsSeries
             {
                 return;
             }
-            values.CopyTo((object?[])array, arrayIndex);
+            values.ToList().CopyTo(array, arrayIndex);
         }
 
         public Series<DataType> ConvertToGenerics<DataType>() where DataType : notnull
@@ -89,18 +104,9 @@ namespace DataProcessor.source.NonGenericsSeries
                     newValues.Add(default!);
                 }
             }
-            return new Series<DataType>(this.seriesName, newValues, this.index);
+            return new Series<DataType>(newValues, this.Name, this.index.ToList());
         }
 
-        public void ResetIndex()
-        {
-            this.index = Enumerable.Range(0, values.Count - 1).Cast<object>().ToList();
-            this.indexMap.Clear();
-            foreach (var idx in index)
-            {
-                this.indexMap[idx] = new List<int> { Convert.ToInt32(idx) };
-            }
-        }
 
         public ISeries AsType(Type newType, bool forceCast = false)
         {
@@ -154,35 +160,130 @@ namespace DataProcessor.source.NonGenericsSeries
                 }
             }
 
-            var result = new Series(newValues, this.Name, this.index)
+            var result = new Series(newValues, Index, newType, name: this.seriesName)
             {
                 dataType = newType // bảo toàn kiểu dữ liệu gốc tránh bị hệ thống suy luận kiểu làm sai kiểu dữ liệu
             };
             return result;
         }
 
-        public void Sort(Comparer<object?>? comparer = null)
+        /// <summary>
+        /// Sorts the values in the series using the specified comparer and returns a new series with the sorted values.
+        /// </summary>
+        /// <remarks>The sorting operation does not modify the current series. Instead, it creates and
+        /// returns a new series with the sorted values. The original index is retained in the returned series, ensuring
+        /// that the relationship between values and their indices remains consistent.</remarks>
+        /// <param name="comparer">An optional comparer used to determine the order of the values. If <see langword="null"/>, the default
+        /// comparer for the value type is used.</param>
+        /// <returns>A new <see cref="Series"/> instance containing the values sorted according to the specified comparer, with
+        /// the original index preserved.</returns>
+        public Series SortValues(Comparer<object?>? comparer = null)
         {
-            if (values == null) { return; }
             if (comparer == null)
             {
-                if (values.Any(x => x != null && x is not IComparable))
-                {
-                    throw new InvalidOperationException("All non-null values must implement IComparable for sorting.");
-                }
-                // Sử dụng OrderBy với logic null được đưa về cuối
-                values = values.OrderBy(x => x != null)
-                               .ThenBy(x => x as IComparable)  // Đảm bảo sắp xếp bình thường sau khi xử lý null
-                               .Concat(values.Where(x => x == null))
-                               .ToList();
+                comparer = Comparer<object?>.Default;
             }
-            else
+            // Sort the values and index together based on the values
+            var sortedIndices = values.Select((value, index) => new { value, index })
+                                      .OrderBy(x => x.value, comparer)
+                                      .Select(x => x.index)
+                                      .ToList();
+            // Create new sorted lists
+            var sortedValues = new List<object?>(values.Count);
+            foreach (var idx in sortedIndices)
             {
-                // Sử dụng OrderBy với comparer, với logic null được đưa về cuối
-                values = values.OrderBy(x => x == null ? 1 : 0)
-                               .ThenBy(x => x, comparer)  // Sắp xếp với comparer nếu có
-                               .ToList();
+                sortedValues.Add(values[idx]);
             }
+
+            return new Series(sortedValues,
+                index: index.ToList(),
+                dtype: this.dataType,
+                name: this.seriesName);
+
+        }
+
+        /// <summary>
+        /// Sorts the index of the series using the specified comparer and reorders the values accordingly.
+        /// </summary>
+        /// <remarks>This method creates a new series with the index sorted based on the specified
+        /// comparer. The values are reordered to maintain their association with the original index elements. If no
+        /// comparer is provided, the default comparer for the index element type is used.</remarks>
+        /// <param name="comparer">An optional comparer used to determine the order of the index elements. If <see langword="null"/>, the
+        /// default comparer for the index element type is used.</param>
+        /// <returns>A new <see cref="Series"/> instance with the index sorted and the values reordered to match the new index
+        /// order.</returns>
+        public Series SortIndex(Comparer<object?>? comparer = null)
+        {
+            if (comparer == null)
+            {
+                comparer = Comparer<object?>.Default;
+            }
+            // Sort the index and values together based on the index
+            var sortedIndices = index.Select((idx, i) => new { idx, i })
+                                      .OrderBy(x => x.idx, comparer)
+                                      .Select(x => x.i)
+                                      .ToList();
+            // Create new sorted lists
+            var sortedValues = new List<object?>(values.Count);
+            foreach (var idx in sortedIndices)
+            {
+                sortedValues.Add(values[idx]);
+            }
+            return new Series(sortedValues,
+                index: index.ToList(),
+                dtype: this.dataType,
+                name: this.seriesName);
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="Series"/> instance with the values and index reversed.
+        /// </summary>
+        /// <remarks>The returned <see cref="Series"/> will have its values and index in reverse order
+        /// compared to the current instance. The data type and series name are preserved in the reversed
+        /// series.</remarks>
+        /// <returns>A new <see cref="Series"/> instance with reversed values and index.</returns>
+        public Series Reverse()
+        {
+            // Reverse the values and index
+            var reversedValues = new List<object?>(values);
+            reversedValues.Reverse();
+            var reversedIndex = new List<object>(index);
+            reversedIndex.Reverse();
+            return new Series(reversedValues, reversedIndex, this.dataType, this.seriesName);
+        }
+        
+        /// <summary>
+        /// Combines the current series with another series, creating a new series that contains the values and indices
+        /// from both.
+        /// </summary>
+        /// <remarks>The method appends the values and indices of the specified <paramref name="other"/>
+        /// series to the current series. If both series have range-based indices, the resulting series will not include
+        /// an explicit index. Otherwise, the indices from both series are combined into the resulting series.</remarks>
+        /// <param name="other">The series to combine with the current series. Must not be null.</param>
+        /// <returns>A new <see cref="Series"/> instance containing the combined values and indices from the current series and
+        /// the specified <paramref name="other"/> series. If both series have range-based indices, the resulting series
+        /// will have a null index.</returns>
+        public Series Extend(Series other)
+        {
+            List<object?> extendedValues = new List<object?>();
+            List<object> extendedindex = new List<object>();
+            for(int i = 0; i < this.Count; i++)
+            {
+                extendedindex.Add(index[i]);
+                extendedValues.Add(values[i]);
+            }
+
+            for(int i = 0; i < other.Count; i++)
+            {
+                extendedindex.Add(other.index[i]);
+                extendedValues.Add(other.values[i]);
+            }
+
+            if(this.index.GetType() == typeof(RangeIndex) && other.index.GetType() == typeof(RangeIndex))
+            {
+                return new Series(extendedValues, null, name: this.seriesName);
+            }
+            return new Series(extendedValues, extendedindex, dtype: null, this.seriesName);
         }
     }
 }
