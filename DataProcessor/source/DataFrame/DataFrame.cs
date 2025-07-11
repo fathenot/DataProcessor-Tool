@@ -92,21 +92,7 @@ namespace DataProcessor.source.DataFrame
             this.frame = new List<Series>();
 
             // configure the frame begin
-            for (int i = 0; i < frame.Count; i++)
-            {
-                frame[i].ResetIndex();
-            }
-            List<int> SeriesSizes = new List<int>();
-            foreach (var series in frame)
-            {
-                SeriesSizes.Add(series.Count);
-            }
-            int MaxSize = SeriesSizes.Max();
-            // check valid argument
-            if (index != null && index.Count != MaxSize)
-            {
-                throw new ArgumentException($"{nameof(index)} has {index.Count} labels but {nameof(frame)} has {MaxSize} rows ");
-            }
+          
 
 
         }

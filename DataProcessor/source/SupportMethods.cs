@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -87,7 +88,24 @@ namespace DataProcessor.source
                 row.AddRange(Enumerable.Repeat<object?>(null, maxRowLength - row.Count));
             }
         }
-        
+
+        public static bool IsGroupedIndex(IEnumerable<object?> index)
+        {
+            if (index == null)
+            {
+                return false;
+            }
+            foreach (var item in index)
+            {
+                if (item is object[] || item is List<object> ||
+                    item?.GetType().FullName?.StartsWith("System.ValueTuple") == true ||
+                    item is ITuple)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
     }
 }
