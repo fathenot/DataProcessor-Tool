@@ -363,3 +363,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+#Assembly Info
+source/AssemblyInfo
+/DataProcessor/source/AssemblyInfo
