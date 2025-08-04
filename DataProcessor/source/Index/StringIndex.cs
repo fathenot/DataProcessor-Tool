@@ -37,7 +37,7 @@ namespace DataProcessor.source.Index
         /// <param name="normalizationForm">The Unicode normalization form to apply to the strings. Defaults to <see cref="NormalizationForm.FormC"/>.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="stringIndexes"/> is <see langword="null"/>.</exception>
         /// <exception cref="ArgumentException">Thrown if <paramref name="stringIndexes"/> contains <see langword="null"/> values.</exception>
-        internal StringIndex(List<string> stringIndexes, NormalizationForm normalizationForm = NormalizationForm.FormC)
+        public StringIndex(List<string> stringIndexes, NormalizationForm normalizationForm = NormalizationForm.FormC)
         {
             // validate input
             if (stringIndexes == null)
@@ -139,7 +139,7 @@ namespace DataProcessor.source.Index
         {
             if (key is string strKey)
             {
-                var tmp = NormalizeUnicode(strKey, UserSettings.UserConfig.DefaultNormalizationForm);
+                var tmp = NormalizeUnicode(strKey);
                 return indexMap.ContainsKey(tmp);
             }
             throw new ArgumentException($"{nameof(key)} must be string.");
@@ -178,7 +178,7 @@ namespace DataProcessor.source.Index
         /// <returns>A read-only list of integers representing the index positions associated with the specified key.</returns>
         public override IReadOnlyList<int> GetIndexPosition(object index)
         {
-            return new List<int>(indexMap[NormalizeUnicode((string)index, UserSettings.UserConfig.DefaultNormalizationForm)]);
+            return new List<int>(indexMap[NormalizeUnicode((string)index)]);
         }
         /// <summary>
         /// Returns a collection of distinct string indices.
@@ -240,8 +240,6 @@ namespace DataProcessor.source.Index
                 {
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
                 }
-                if(value is null) throw new ArgumentNullException(nameof(value));
-
                 var oldValue = stringIndexes[index];
                 stringIndexes[index] = value.ToString();
 
