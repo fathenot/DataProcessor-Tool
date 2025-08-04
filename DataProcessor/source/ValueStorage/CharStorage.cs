@@ -164,35 +164,5 @@ namespace DataProcessor.source.ValueStorage
                 handle.Free();
             }
         }
-
-
-        /// <summary>
-        /// Gets an array of non-null <see cref="char"/> values stored in this instance.
-        /// </summary>
-        /// <remarks>
-        /// This property iterates through the internal storage, excluding any entries marked as null by the
-        /// <c>_nullMap</c>. For each non-null element, it reconstructs the <see cref="char"/> from its corresponding
-        /// tick value in the <c>_ticks</c> array. The resulting array contains only valid <see cref="char"/> values,
-        /// and its length equals <c>Count - NullCount</c>.
-        /// </remarks>
-        /// <returns>
-        /// An array of <see cref="char"/> values representing the non-null elements in the storage.
-        /// </returns>
-        internal char[] Values
-        {
-            get
-            {
-                // Returns a copy of the internal character array, excluding null values.
-                var nonNullChars = new List<char>();
-                for (int i = 0; i < chars.Length; i++)
-                {
-                    if (!nullbitMap.IsNull(i))
-                    {
-                        nonNullChars.Add(chars[i]);
-                    }
-                }
-                return nonNullChars.ToArray();
-            }
-        }
     }
 }

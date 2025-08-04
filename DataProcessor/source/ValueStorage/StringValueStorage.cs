@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Text;
+using DataProcessor.source.UserSettings;
 namespace DataProcessor.source.ValueStorage
 {
     /// <summary>
@@ -36,7 +37,7 @@ namespace DataProcessor.source.ValueStorage
         /// input array is used directly, and its elements are normalized in place if normalization is enabled.</param>
         internal StringStorage(string?[] strings, bool copy = true)
         {
-            if (!copy)
+            if(!copy)
             {
                 this.strings = strings;
                 for (int i = 0; i < strings.Length; i++)
@@ -53,7 +54,7 @@ namespace DataProcessor.source.ValueStorage
                     this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? s?.Normalize(UserSettings.UserConfig.DefaultNormalizationForm) : s;
                 }
             }
-
+           
         }
 
 
@@ -148,25 +149,6 @@ namespace DataProcessor.source.ValueStorage
             public void Reset()
             {
                 currentIndex = -1;
-            }
-        }
-
-        /// <summary>
-        /// Gets an array of non-null string values from the collection.
-        /// </summary>
-        internal string[] Values
-        {
-            get
-            {
-                List<string> nonNullVals = new List<string>(strings.Length - this.NullIndices.Count());
-                for (int i = 0; i < strings.Length; i++)
-                {
-                   if( strings[i] != null)
-                    {
-                        nonNullVals.Add(strings[i]!);
-                    }
-                }
-                return nonNullVals.ToArray();
             }
         }
     }

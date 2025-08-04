@@ -175,17 +175,5 @@ namespace DataProcessor.source.ValueStorage
             return GetEnumerator();
         }
 
-        /// <summary>
-        /// gets an array of values stored in this storage
-        /// </summary>
-        internal T[] Values
-        {
-            get
-            {
-                T[] copy = new T[values.Length];
-                Array.Copy(values, copy, values.Length);
-                return copy;
-            }
-        }
     }
 }
