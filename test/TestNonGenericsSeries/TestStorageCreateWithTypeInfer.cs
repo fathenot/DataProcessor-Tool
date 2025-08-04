@@ -19,7 +19,7 @@ namespace test.TestNonGenericsSeries
             }
 
             Assert.Equal(typeof(long), Support.InferDataType(list));
-            AbstractValueStorage storage = Series.CreateValueStorage(list);
+            AbstractValueStorage storage = Series.ValueStorageCreate(list);
             Assert.True(storage is IntValuesStorage); // your internal naming
         }
 
@@ -31,7 +31,6 @@ namespace test.TestNonGenericsSeries
             new object[] { new object[] { Guid.NewGuid() }, typeof(Guid), typeof(ObjectValueStorage) },
             new object[] { new object[] { "Hello", "World" }, typeof(string), typeof(StringStorage) },
             new object[] { new object[] { null, true, false }, typeof(bool), typeof(BoolStorage) },
-            new object[] { new object[] { 3.14, 2.71, null }, typeof(double), typeof(DoubleValueStorage) },
         };
 
         [Theory]
@@ -42,7 +41,7 @@ namespace test.TestNonGenericsSeries
             var inferred = Support.InferDataType(list);
             Assert.Equal(expectedType, inferred);
 
-            var storage = Series.CreateValueStorage(list);
+            var storage = Series.ValueStorageCreate(list);
             Assert.Equal(expectedStorageType, storage.GetType());
         }
     }

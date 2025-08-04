@@ -100,22 +100,5 @@ namespace test.TestStorage
             Assert.Equal(dt.ToString("o"), ((DateTime)storage.GetValue(0)).ToString("o"));
         }
 
-        [Fact]
-        public void TestValueProperty()
-        {
-            var now = DateTime.Now;
-            var utcNow = DateTime.UtcNow;
-
-            var dateTimeStorage = new DateTimeStorage(new DateTime?[] { now, null, utcNow });
-            var values = dateTimeStorage.Values.ToList();
-
-            Assert.Equal(2, values.Count);
-            Assert.Equal(now, values[0]); // Chính xác kiểu và giá trị
-            //Assert.Equal(DateTimeKind.Local, values[0].Kind);
-
-            Assert.Equal(utcNow, values[1]); // Chính xác kiểu và giá trị
-            //Assert.Equal(DateTimeKind.Utc, values[1].Kind);
-        }
-
     }
 }

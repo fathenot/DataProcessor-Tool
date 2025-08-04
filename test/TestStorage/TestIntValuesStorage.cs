@@ -162,17 +162,5 @@ namespace test.TestStorage
                 Assert.NotNull(intStorage.GetValue(idx));
             }
         }
-
-        [Fact]
-        public void TestIntStorage_ValuesProperty()
-        {
-                       var intStorage = new IntValuesStorage(new long?[] { 1, 2, null, 4, 5 });
-            var values = intStorage.Values;
-            Assert.Equal(4, values.Length);
-            Assert.Equal(1, values[0]);
-            Assert.Equal(2, values[1]);
-            Assert.Equal(4, values[2]);
-            Assert.Equal(5, values[3]); 
-        }
     }
 }

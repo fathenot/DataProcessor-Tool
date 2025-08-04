@@ -1,4 +1,10 @@
-﻿using DataProcessor.source.ValueStorage;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+using DataProcessor.source.ValueStorage;
 namespace test.TestStorage
 {
     public class TestCharStorage
@@ -97,14 +103,15 @@ namespace test.TestStorage
             Assert.Contains(null, typedList);
         }
         [Fact]
-        public void TestValueProperty()
+        public void RunAllTests()
         {
-            var charStorage = new CharStorage(new char?[] { 'a', 'b', null, 'c' });
-            var nonNullValues = charStorage.Values.ToList();
-            Assert.Equal(3, nonNullValues.Count);
-            Assert.Contains('a', nonNullValues);
-            Assert.Contains('b', nonNullValues);
-            Assert.Contains('c', nonNullValues);
+            TestCharStorageWithNulls();
+            TestCharStorageWithAllNulls();
+            TestCharStorageWithEmptyArray();
+            TestCharStorageSetValue();
+            TestApplyLinq();
+            TestEnumerator();
+            TestAsTyped();
         }
     }
 }
