@@ -1,11 +1,10 @@
 ﻿using DataProcessor.source.Index;
-using DataProcessor.source.ValueStorage;
 using System.Collections;
 namespace DataProcessor.source.NonGenericsSeries
 {
     public partial class Series
     {
-      
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Series"/> class, representing a one-dimensional array-like
         /// structure with associated index and data type.
@@ -65,6 +64,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 }
             }
 
+            // handle data is enumerable except string
             else if (data is IEnumerable enumerable && !(data is string))
             {
                 values = new List<object?>();
@@ -80,23 +80,66 @@ namespace DataProcessor.source.NonGenericsSeries
                     }
                 }
             }
+
+            // throw exception if data is not IDictionary or IEnumerable
             else
             {
                 throw new ArgumentException("Data must be an IDictionary or IEnumerable.", nameof(data));
             }
 
             //select the type of data storage with the given type or infer from values
-            this.dataType = dtype ?? Support.InferDataType(values);
+           
+            if( dtype != null)// handle the user specified data type
+            {
+                this.dataType = dtype;
+                // change type
+                values = values.Select(v => ChangeType(v, dtype)).ToList();
+                this.valueStorage = CreateValueStorage(dtype, values, copy);
+            }
+            else
+            {
+                // infer the data type from the values
+                this.dataType = Support.InferDataType(values)!;
+            }
 
             // create the value storage based on the values and data type
-            this.values = ValueStorageCreate(values, copy);
-            if(index == null) this.index = new RangeIndex(0, values.Count);
+            this.valueStorage = CreateValueStorage(values, copy);
+
+            // if index is null, create a default RangeIndex with the length of values
+            if (index == null) this.index = new RangeIndex(0, values.Count-1);
             else
             {
                 // create the index based on the finalIndex
-                this.index = CreateIndex(finalIndex);
+                this.index = CreateIndex(index.ToList());
             }
             this.seriesName = name;
         }
+
+        public Series(Series series, bool copy = false)
+        {
+            if (series == null) throw new ArgumentNullException(nameof(series));
+            this.dataType = series.dataType;
+            this.index = series.index;
+            this.seriesName = series.seriesName;
+            if (!copy)
+            {
+                this.valueStorage = series.valueStorage;
+            }
+            else
+            {
+                this.valueStorage = CreateValueStorage(series.Values.ToList(), copy);
+            }
+
+            if (series.index is RangeIndex rangeIndex)
+            {
+                this.index = new RangeIndex(rangeIndex.Start, rangeIndex.Stop, rangeIndex.Step);
+            }
+            else
+            {
+                // create a new index based on the existing index
+                this.index = CreateIndex(series.index.ToList());
+            }
+        }
+
     }
 }

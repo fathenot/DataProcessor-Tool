@@ -117,6 +117,17 @@ namespace DataProcessor.source.ValueStorage
             {
                 // No unmanaged resources to clean up in this case.
             }
+
+            /// <summary>
+            /// get an array of non-null values from the collection.
+            /// </summary>
+            internal object[] Values
+            {
+                get
+                {
+                    return data.Where(o => o != null).ToArray();
+                }
+            }
         }
     }
 }

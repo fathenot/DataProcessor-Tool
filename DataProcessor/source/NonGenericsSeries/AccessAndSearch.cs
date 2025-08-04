@@ -17,7 +17,7 @@ namespace DataProcessor.source.NonGenericsSeries
         public Series Head(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than or equal to 0.");
-            return new Series (values.Take(count).ToList(),
+            return new Series (valueStorage.Take(count).ToList(),
                 index: index.IndexList.Take(count).ToList());
         }
 
@@ -35,7 +35,7 @@ namespace DataProcessor.source.NonGenericsSeries
         public Series Tail(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than or equal to 0.");
-            return new Series (values.Skip(Math.Max(0, values.Count - count)).ToList(),
+            return new Series (valueStorage.Skip(Math.Max(0, valueStorage.Count - count)).ToList(),
                 index: index.IndexList.Skip(Math.Max(0, index.IndexList.Count - count)).ToList());
         }
 
@@ -106,9 +106,9 @@ namespace DataProcessor.source.NonGenericsSeries
             List<object?> filteredValues = new List<object?>();
             for (int i = 0; i < this.Count; i++)
             {
-                if (filter(this.values.GetValue(i)))
+                if (filter(this.valueStorage.GetValue(i)))
                 {
-                    filteredValues.Add(this.values.GetValue(i));
+                    filteredValues.Add(this.valueStorage.GetValue(i));
                 }
             }
 
@@ -129,7 +129,7 @@ namespace DataProcessor.source.NonGenericsSeries
             List<int> indices = new List<int>();
             for (int i = 0; i < this.Count; i++)
             {
-                if (object.Equals(this.values.GetValue(i), item))
+                if (object.Equals(this.valueStorage.GetValue(i), item))
                 {
                     indices.Add(i);
                 }
@@ -147,7 +147,17 @@ namespace DataProcessor.source.NonGenericsSeries
 
         public bool Contains(object? item)
         {
-            return this.values.Contains(item);
+            return this.valueStorage.Contains(item);
+        }
+
+        /// <summary>
+        /// Retrieves the value stored at the specified index in the internal storage.
+        /// </summary>
+        /// <param name="index">The zero-based index of the value to retrieve. Must be within the bounds of the storage.</param>
+        /// <returns>The value at the specified index, or <see langword="null"/> if the index is valid but the value is not set.</returns>
+        public object? GetValueIntloc(int index)
+        {
+            return this.valueStorage[index];
         }
     }
 }

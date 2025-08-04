@@ -1,4 +1,6 @@
-﻿namespace test.TestStorage
+﻿using DataProcessor.source.ValueStorage;
+
+namespace test.TestStorage
 {
     public class TestDecimalStorage
     {
@@ -85,16 +87,14 @@
         }
 
         [Fact]
-        public void RunAllTests()
+        public void TestDoubleStorageValueProperty()
         {
-            TestDecimalStorageWithNulls();
-            TestDecimalStorageWithAllNulls();
-            TestDecimalStorageWithEmptyArray();
-            ApplyLinqToDecimalStorage();
-            TestUpdateValue();
-            TestInvalidSetValue();
-            TestEnumerator();
-            TestAsTyped();
+            DecimalStorage decimalStorage = new DecimalStorage(new decimal?[] { 1.0m, 3.5m, null, null, 3.0m });
+            var values = decimalStorage.Values.ToList();
+            Assert.Equal(3, values.Count);
+            Assert.Equal(1.0m, values[0]);
+            Assert.Equal(3.5m, values[1]);
+            Assert.Equal(3.0m, values[2]);
         }
     }
 }

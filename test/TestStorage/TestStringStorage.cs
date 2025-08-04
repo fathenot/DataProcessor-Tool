@@ -161,18 +161,20 @@
         }
 
         [Fact]
-        public void RunAllTests()
+        public void TestStringStorage_NullHandling()
         {
-            TestStringStorageWithNulls();
-            TestStringStorageWithAllNulls();
-            TestStringStorageWithEmptyArray();
-            TestUnicodeStringStorage();
-            TestUnicodeStringStorageWithNulls();
-            TestStringStorage_ComplexUnicode();
-            TestStringStorage_SetValue_ValidUpdates();
-            TestStringStorage_SetValue_InvalidType_Throws();
-            TestStringStorage_SetValue_ToNull();
-            TestStringStorage_ApplyLinq();
+            var storage = new DataProcessor.source.ValueStorage.StringStorage(new string?[] { "test", null, "data" });
+            Assert.Equal(3, storage.Count);
+            Assert.True(storage.NullIndices.SequenceEqual(new[] { 1 }));
+            Assert.Null(storage.GetValue(1));
+            storage.SetValue(1, "new value");
+            Assert.Equal("new value", storage.GetValue(1));
+            Assert.True(storage.NullIndices.SequenceEqual(new int[0]));
+
+            var nonNullVals = storage.Values;
+            Assert.Equal(3, nonNullVals.Count());
+            Assert.Contains("test", nonNullVals);
+            Assert.Contains("data", nonNullVals);
         }
     }
 }

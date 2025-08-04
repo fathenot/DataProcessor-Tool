@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using Xunit;
-using DataProcessor.source.ValueStorage;
+﻿using DataProcessor.source.ValueStorage;
 namespace test.TestStorage
 {
     public class TestDoubleStorage
@@ -128,19 +121,25 @@ namespace test.TestStorage
         }
 
         [Fact]
-        public void RunAllTests()
+        public void TestDoubleStorageValueProperty()
         {
-            TestNullHandlingInDoubleStorage();
-            TestDoubleStorageWithAllNulls();
-            TestDoubleStorageWithEmptyArray();
-            TestDoubleStorageWithSingleNullValue();
-            TestDoubleStorageWithSingleValue();
-            TestDoubleStorageWithMixedValues();
-            TestDoubleStorageWithNegativeValues();
-            TestDoubleStorageWithLargeValues();
-            TestDoubleStorageWithNaNAndInfinity();
-            TestDoubleStorageWithNullsAndSpecialValues();
-            TestDoubleStorageSetValue();
+            DoubleValueStorage doubleStorage = new DoubleValueStorage(new double?[] { 1.0, null, 3.5 });
+            var values = doubleStorage.Values.ToList();
+            Assert.Equal(2, values.Count);
+            Assert.Equal(1.0, values[0]);
+            Assert.Equal(3.5, values[1]);
+        }
+
+        [Fact]
+        public void TestDoubleStorageWithLinq()
+        {
+
+            var doubleStorage = new DoubleValueStorage(new double?[] { 3.14, 2.71, null });
+            var result = doubleStorage.ToList().AsReadOnly();
+            Assert.Equal(3, result.Count);
+            Assert.Equal(3.14, result[0]);
+            Assert.Equal(2.71, result[1]);
+            Assert.Null(result[2]);
         }
     }
 }

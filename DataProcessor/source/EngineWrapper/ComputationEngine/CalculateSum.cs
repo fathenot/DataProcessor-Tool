@@ -12,7 +12,7 @@ namespace DataProcessor.source.EngineWrapper.ComputationEngine
     /// </summary>
     internal static class CalculateSum
     {
-        public static double ComputeSum(double[] data)
+        internal static double ComputeSum(double[] data)
         {
             if (!Avx.IsSupported)
                 throw new PlatformNotSupportedException("AVX is not supported on this CPU");
@@ -50,7 +50,7 @@ namespace DataProcessor.source.EngineWrapper.ComputationEngine
             return sum;
         }
 
-        public static long ComputeSum(long[] data)
+        internal static long ComputeSum(long[] data)
         {
             if (!Avx.IsSupported)
                 throw new PlatformNotSupportedException("AVX is not supported on this CPU");
@@ -95,38 +95,7 @@ namespace DataProcessor.source.EngineWrapper.ComputationEngine
             return sum;
         }
 
-        public static double Mean(double[] data, int[]? nullIndicies = null)
-        {
-            if (data == null || data.Length == 0)
-                throw new ArgumentException("Data cannot be null or empty.");
-            double sum = ComputeSum(data);
-            if (nullIndicies != null)
-            {
-                int count = data.Length - nullIndicies.Length;
-                if (count <= 0)
-                    throw new ArgumentException("No valid data points to calculate mean.");
-                return sum / count;
-            }
-
-            return sum / data.Length;
-        }
-
-        public static long Mean(long[] data, int[]? nullIndicies = null)
-        {
-            if (data == null || data.Length == 0)
-                throw new ArgumentException("Data cannot be null or empty.");
-            long sum = ComputeSum(data);
-            if (nullIndicies != null)
-            {
-                int count = data.Length - nullIndicies.Length;
-                if (count <= 0)
-                    throw new ArgumentException("No valid data points to calculate mean.");
-                return sum / count;
-            }
-            return sum / data.Length;
-        }
-
-        public static T ComputeSum<T>(T[] data, bool dropNull = true)
+        internal static T ComputeSum<T>(T[] data, bool dropNull = true)
         {
             // data must not be null
             if(data == null)

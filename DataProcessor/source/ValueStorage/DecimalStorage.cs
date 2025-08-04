@@ -174,5 +174,33 @@ namespace DataProcessor.source.ValueStorage
             object? System.Collections.IEnumerator.Current => Current;
             public void Dispose() { }
         }
+
+        /// <summary>
+        /// Gets an array of non-null <see cref="decimal"/> values stored in this instance.
+        /// </summary>
+        /// <remarks>
+        /// This property iterates through the internal storage, excluding any entries marked as null by the
+        /// <c>_nullMap</c>. For each non-null element, it reconstructs the <see cref="decimal"/> from its corresponding
+        /// tick value in the <c>_ticks</c> array. The resulting array contains only valid <see cref="decimal"/> values,
+        /// and its length equals <c>Count - NullCount</c>.
+        /// </remarks>
+        /// <returns>
+        /// An array of <see cref="decimal"/> values representing the non-null elements in the storage.
+        /// </returns>
+        internal decimal[] Values
+        {
+            get
+            {
+                var values = new List<decimal>(Count - NullIndices.Count());
+                for (int i = 0; i < Count; i++)
+                {
+                    if (!nullBitMap.IsNull(i))
+                    {
+                        values.Add(decimals[i]);
+                    }
+                }
+                return values.ToArray();
+            }
+        }
     }
 }

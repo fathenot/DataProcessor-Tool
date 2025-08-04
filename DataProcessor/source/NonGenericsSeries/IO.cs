@@ -23,9 +23,9 @@ namespace DataProcessor.source.NonGenericsSeries
             sb.AppendLine($"Series: {Name ?? "Unnamed"}"); // In tên Series
             sb.AppendLine("Index | Value");
             sb.AppendLine("--------------");
-            for (int i = 0; i < values.Count; i++)
+            for (int i = 0; i < valueStorage.Count; i++)
             {
-                sb.AppendLine($"{index.GetIndex(i).ToString(),5} | {values.GetValue(i)?.ToString() ?? "null"}");
+                sb.AppendLine($"{index.GetIndex(i).ToString(),5} | {valueStorage.GetValue(i)?.ToString() ?? "null"}");
             }
             return sb.ToString();
         }

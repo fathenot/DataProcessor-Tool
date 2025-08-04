@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DataProcessor.source.GenericsSeries;
+﻿using DataProcessor.source.GenericsSeries;
 using DataProcessor.source.Index;
+using DataProcessor.source.ValueStorage;
 
 namespace DataProcessor.source.NonGenericsSeries
 {
@@ -21,63 +16,52 @@ namespace DataProcessor.source.NonGenericsSeries
         /// array of positions.</returns>
         public GroupView GroupByIndex()
         {
-            Dictionary<object, int[]> groups = new Dictionary<object, int[]>();
+            Dictionary<object, List<int>> groups = new Dictionary<object, List<int>>();
             foreach (var Index in this.index.DistinctIndices())
             {
-                groups[Index] = this.index.GetIndexPosition(Index).ToArray();
+                groups[Index] = this.index.GetIndexPosition(Index).ToList();
             }
             return new GroupView(this, groups);
         }
 
+
         public GroupView GroupByValue()
         {
-            Dictionary<object, int[]> groups = new Dictionary<object, int[]>();
-            List<object?> allValues = new List<object?>();
-            for (int Index = 0; Index < values.Count; Index++)
+            Dictionary<object, List<int>> groups = new Dictionary<object, List<int>>();
+            for (int i = 0; i < this.valueStorage.Count; i++)
             {
-                allValues.Add(this.values.GetValue(Index));
-            }
-
-            var removedDuplicate = new HashSet<object?>(allValues);
-            foreach (var Element in removedDuplicate)
-            {
-                int[] indicies = allValues.Select((value, index) => new { value, index })
-                                        .Where(x => Object.Equals(x, Element))
-                                        .Select(x => x.index)
-                                        .ToArray();
-                if (Element == null)
+                if (groups.ContainsKey(this.valueStorage[i]!))
                 {
-                    object convertedNullValue = DBNull.Value;
-                    groups[convertedNullValue] = indicies;
+                    groups[this.valueStorage[i]!].Add(i);
                 }
-                else
+
+                else if (this.valueStorage[i] != null && !groups.ContainsKey(this.valueStorage[i]!))
                 {
-                    groups[Element] = indicies;
+                    groups[this.valueStorage[i]!] = new List<int>() { i };
                 }
 
             }
             return new GroupView(this, groups);
-
         }
 
         public ISeries Clone()
         {
-            return new Series(this);
+            return new Series(this, true);
         }
 
         public void CopyTo(object?[] array, int arrayIndex)
         {
-            if (values == null)
+            if (this.valueStorage == null)
             {
                 return;
             }
-            values.ToList().CopyTo(array, arrayIndex);
+            this.valueStorage.ToList().CopyTo(array, arrayIndex);
         }
 
         public Series<DataType> ConvertToGenerics<DataType>() where DataType : notnull
         {
-            var newValues = new List<DataType>(values.Count);
-            foreach (var v in values)
+            var newValues = new List<DataType>(this.valueStorage.Count);
+            foreach (var v in this.valueStorage)
             {
                 if (v == null || v == DBNull.Value)
                 {
@@ -107,14 +91,29 @@ namespace DataProcessor.source.NonGenericsSeries
             return new Series<DataType>(newValues, this.Name, this.index.ToList());
         }
 
-
+        /// <summary>
+        /// Converts the elements of the current series to the specified type.
+        /// </summary>
+        /// <remarks>This method supports conversion to common types, including enums and <see
+        /// cref="DateTime"/>.  For enums, string and integer values are supported if they match the target enum type. 
+        /// For <see cref="DateTime"/>, string values are parsed using <see cref="DateTime.TryParse(string, out
+        /// DateTime)"/>.</remarks>
+        /// <param name="newType">The target type to which the elements of the series should be converted. This type must be a valid .NET
+        /// type.</param>
+        /// <param name="forceCast">A boolean value indicating whether to enforce strict type conversion.  If <see langword="true"/>, an <see
+        /// cref="InvalidCastException"/> is thrown for any element that cannot be converted.  If <see
+        /// langword="false"/>, elements that cannot be converted are replaced with <see cref="DBNull.Value"/>.</param>
+        /// <returns>A new series with elements converted to the specified type.  Elements that cannot be converted are replaced
+        /// with <see cref="DBNull.Value"/> unless <paramref name="forceCast"/> is <see langword="true"/>.</returns>
+        /// <exception cref="InvalidCastException">Thrown if <paramref name="forceCast"/> is <see langword="true"/> and an element cannot be converted to
+        /// <paramref name="newType"/>.</exception>
         public ISeries AsType(Type newType, bool forceCast = false)
         {
             ArgumentNullException.ThrowIfNull(newType);
 
-            var newValues = new List<object?>(values.Count);
+            var newValues = new List<object?>(this.valueStorage.Count);
             // add new value to newValues to create new Series
-            foreach (var v in values)
+            foreach (var v in this.valueStorage)
             {
                 if (v == null || v == DBNull.Value)
                 {
@@ -177,28 +176,174 @@ namespace DataProcessor.source.NonGenericsSeries
         /// comparer for the value type is used.</param>
         /// <returns>A new <see cref="Series"/> instance containing the values sorted according to the specified comparer, with
         /// the original index preserved.</returns>
-        public Series SortValues(Comparer<object?>? comparer = null)
+        public Series SortValues(bool ascending = true, bool nullsFirst = false)
         {
-            if (comparer == null)
+            switch (this.valueStorage)
             {
-                comparer = Comparer<object?>.Default;
-            }
-            // Sort the values and index together based on the values
-            var sortedIndices = values.Select((value, index) => new { value, index })
-                                      .OrderBy(x => x.value, comparer)
-                                      .Select(x => x.index)
-                                      .ToList();
-            // Create new sorted lists
-            var sortedValues = new List<object?>(values.Count);
-            foreach (var idx in sortedIndices)
-            {
-                sortedValues.Add(values[idx]);
-            }
+                case IntValuesStorage intStorage:
+                    {
+                        // Xử lý khi storage là kiểu int
+                        var nonNullVals = intStorage.Values;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            foreach( var val in nonNullVals)
+                            {
+                                ListedValues.Add(val);
+                            }
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                                
+                            }
+                            foreach (var val in nonNullVals)
+                            {
+                                ListedValues.Add(val);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
 
-            return new Series(sortedValues,
-                index: index.ToList(),
-                dtype: this.dataType,
-                name: this.seriesName);
+                case DoubleValueStorage doubleStorage:
+                    {
+                        // Xử lý khi storage là kiểu double
+                        var nonNullVals = doubleStorage.Values;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            ListedValues.AddRange(nonNullVals);
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                                ListedValues.AddRange(nonNullVals);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
+
+                case DateTimeStorage dateStorage:
+                    {
+                        // Xử lý DateTime
+                        var nonNullVals = dateStorage.Values;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            ListedValues.AddRange(nonNullVals);
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                                ListedValues.AddRange(nonNullVals);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
+
+                case StringStorage stringStorage:
+                    {
+                        // Xử lý khi storage là kiểu string
+                        var nonNullVals = stringStorage.Values;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            ListedValues.AddRange(nonNullVals);
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                                ListedValues.AddRange(nonNullVals);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
+                case DecimalStorage decimalStorage:
+                    {
+                        // Xử lý khi storage là kiểu decimal
+                        var nonNullVals = decimalStorage.Values;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            ListedValues.AddRange(nonNullVals);
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                                ListedValues.AddRange(nonNullVals);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
+                case CharStorage charStorage:
+                    {
+                        // Xử lý khi storage là kiểu char
+                        var nonNullVals = charStorage.Values;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            ListedValues.AddRange(nonNullVals);
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                                ListedValues.AddRange(nonNullVals);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
+
+                default:
+                    throw new NotSupportedException("Unsupported value storage: " + this.valueStorage.GetType().Name);
+            }
 
         }
 
@@ -224,10 +369,10 @@ namespace DataProcessor.source.NonGenericsSeries
                                       .Select(x => x.i)
                                       .ToList();
             // Create new sorted lists
-            var sortedValues = new List<object?>(values.Count);
+            var sortedValues = new List<object?>(this.valueStorage.Count);
             foreach (var idx in sortedIndices)
             {
-                sortedValues.Add(values[idx]);
+                sortedValues.Add(this.valueStorage[idx]);
             }
             return new Series(sortedValues,
                 index: index.ToList(),
@@ -245,13 +390,13 @@ namespace DataProcessor.source.NonGenericsSeries
         public Series Reverse()
         {
             // Reverse the values and index
-            var reversedValues = new List<object?>(values);
+            var reversedValues = new List<object?>(this.valueStorage);
             reversedValues.Reverse();
             var reversedIndex = new List<object>(index);
             reversedIndex.Reverse();
             return new Series(reversedValues, reversedIndex, this.dataType, this.seriesName);
         }
-        
+
         /// <summary>
         /// Combines the current series with another series, creating a new series that contains the values and indices
         /// from both.
@@ -267,23 +412,61 @@ namespace DataProcessor.source.NonGenericsSeries
         {
             List<object?> extendedValues = new List<object?>();
             List<object> extendedindex = new List<object>();
-            for(int i = 0; i < this.Count; i++)
+            for (int i = 0; i < this.Count; i++)
             {
                 extendedindex.Add(index[i]);
-                extendedValues.Add(values[i]);
+                extendedValues.Add(this.valueStorage[i]);
             }
 
-            for(int i = 0; i < other.Count; i++)
+            for (int i = 0; i < other.Count; i++)
             {
                 extendedindex.Add(other.index[i]);
-                extendedValues.Add(other.values[i]);
+                extendedValues.Add(other.valueStorage[i]);
             }
 
-            if(this.index.GetType() == typeof(RangeIndex) && other.index.GetType() == typeof(RangeIndex))
+            if (this.index.GetType() == typeof(RangeIndex) && other.index.GetType() == typeof(RangeIndex))
             {
                 return new Series(extendedValues, null, name: this.seriesName);
             }
             return new Series(extendedValues, extendedindex, dtype: null, this.seriesName);
+        }
+
+        public dynamic Sum()
+        {
+            string result = string.Empty;
+            switch (this.valueStorage)
+            {
+                case IntValuesStorage intStorage:
+                    {
+                        // Xử lý khi storage là kiểu int
+                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(intStorage.Values);
+                    }
+                case DoubleValueStorage doubleStorage:
+                    {
+                        // Xử lý khi storage là kiểu double
+                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(doubleStorage.Values);
+                    }
+                case StringStorage stringStorage:
+                    {
+                        // Xử lý khi storage là kiểu string
+                        return string.Join("", stringStorage.Values);
+                    }
+                case DecimalStorage decimalStorage:
+                    {
+                        // Xử lý khi storage là kiểu decimal
+                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(decimalStorage.Values).ToString();
+                    }
+                case CharStorage charStorage:
+                    {
+                        // Xử lý khi storage là kiểu char
+                        return string.Join("", charStorage.Values);
+                    }
+                default:
+                    {
+                         throw new NotSupportedException($"Unsupport this type of data {this.GetType()}" );
+                    }
+
+            }
         }
     }
 }

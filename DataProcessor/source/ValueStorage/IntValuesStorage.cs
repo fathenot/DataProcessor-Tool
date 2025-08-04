@@ -201,5 +201,29 @@ namespace DataProcessor.source.ValueStorage
                 // No-op
             }
         }
+
+        /// <summary>
+        /// Gets an array of non-null values from the collection.
+        /// </summary>
+        /// <remarks>The returned array contains only the values that are not marked as null, preserving
+        /// their original order. This property is useful for retrieving a filtered view of the collection's
+        /// data.</remarks>
+        internal long[] Values
+        {
+            get
+            {
+                long[] result = new long[this.Count - this.NullIndices.Count()];
+                int resultIdx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!this._bitMap.IsNull(i))
+                    {
+                        result[resultIdx] = this._intValues[i];
+                        resultIdx++;
+                    }
+                }
+                return result;
+            }
+        }
     }
 }

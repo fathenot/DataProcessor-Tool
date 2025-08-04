@@ -9,43 +9,40 @@ namespace DataProcessor.source.ValueStorage
     internal sealed class DateTimeStorage : AbstractValueStorage, IEnumerable<object?>, IDisposable
     {
         private readonly long[] _ticks;
+        private readonly List<DateTimeKind> _kinds;
         private readonly NullBitMap _nullMap;
         private readonly GCHandle _handle;
         private bool _disposed;
 
-        public DateTimeStorage(DateTime?[] values)
+        internal DateTimeStorage(DateTime?[] values)
         {
             _ticks = new long[values.Length];
             _nullMap = new NullBitMap(values.Length);
-
+            this._kinds = new List<DateTimeKind>(values.Length);
             for (int i = 0; i < values.Length; i++)
             {
                 if (values[i].HasValue)
                 {
                     _ticks[i] = values[i].Value.Ticks;
                     _nullMap.SetNull(i, false);
+                    _kinds.Add(values[i].Value.Kind);
                 }
                 else
                 {
                     _ticks[i] = 0; // placeholder
                     _nullMap.SetNull(i, true);
+                    _kinds.Add(DateTimeKind.Unspecified); // Default for null values
                 }
             }
 
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
-        public DateTimeStorage(DateTime[] dateTimes, bool copy = true)
+        internal DateTimeStorage(DateTime[] dateTimes)
         {
-            if (copy)
-            {
-                _ticks = new long[dateTimes.Length];
-                Array.Copy(dateTimes, _ticks, dateTimes.Length);
-            }
-            else
-            {
-                _ticks = dateTimes.Select(dt => dt.Ticks).ToArray();
-            }
+
+            _ticks = dateTimes.Select(dt => dt.Ticks).ToArray();
+            _kinds = dateTimes.Select(dt => dt.Kind).ToList();
             _nullMap = new NullBitMap(dateTimes.Length);
             for (int i = 0; i < dateTimes.Length; i++)
             {
@@ -53,6 +50,26 @@ namespace DataProcessor.source.ValueStorage
             }
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
+
+        internal DateTimeStorage(long[] ticks, List<DateTimeKind> kinds, bool copy = true)
+        {
+            // ck if ticks and kinds have the same length
+            if (ticks.Length != kinds.Count)
+                throw new ArgumentException("Ticks and kinds must have the same length.");
+
+            if (copy)
+            {
+                _ticks = new long[ticks.Length];
+                Array.Copy(ticks, _ticks, ticks.Length);
+                _kinds = new List<DateTimeKind>(kinds);
+            }
+            else
+            {
+                _ticks = ticks;
+                _kinds = kinds;
+            }
+        }
+
         internal override int Count => _ticks.Length;
 
         internal override Type ElementType => typeof(DateTime);
@@ -120,6 +137,36 @@ namespace DataProcessor.source.ValueStorage
                     if (_nullMap.IsNull(i))
                         yield return i;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Gets an array of non-null <see cref="DateTime"/> values stored in this instance.
+        /// </summary>
+        /// <remarks>
+        /// This property iterates through the internal storage, excluding any entries marked as null by the
+        /// <c>_nullMap</c>. For each non-null element, it reconstructs the <see cref="DateTime"/> from its corresponding
+        /// tick value in the <c>_ticks</c> array. The resulting array contains only valid <see cref="DateTime"/> values,
+        /// and its length equals <c>Count - NullCount</c>.
+        /// </remarks>
+        /// <returns>
+        /// An array of <see cref="DateTime"/> values representing the non-null elements in the storage.
+        /// </returns>
+        internal DateTime[] Values
+        {
+            get
+            {
+                var values = new DateTime[this.Count - this.NullIndices.Count()];
+                int resultIdx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!this._nullMap.IsNull(i))
+                    {
+                        values[resultIdx] = new DateTime(_ticks[i]);
+                        resultIdx++;
+                    }
+                }
+                return values;
             }
         }
 

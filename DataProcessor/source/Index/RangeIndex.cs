@@ -17,6 +17,12 @@ namespace DataProcessor.source.Index
 
         }
 
+
+        public int Start => _start;
+        public int Stop => _stop;
+        public int Step => _step;
+
+
         /// <summary>
         /// Gets the number of elements in the sequence represented by this instance.
         /// </summary>

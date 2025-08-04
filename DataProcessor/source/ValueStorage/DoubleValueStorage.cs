@@ -176,5 +176,35 @@ namespace DataProcessor.source.ValueStorage
                 currentIndex = -1;
             }
         }
+
+        /// <summary>
+        /// Gets an array of non-null <see cref="double"/> values stored in this instance.
+        /// </summary>
+        /// <remarks>
+        /// This property iterates through the internal storage, excluding any entries marked as null by the
+        /// <c>_nullMap</c>. For each non-null element, it reconstructs the <see cref="double"/> from its corresponding
+        /// tick value in the <c>_ticks</c> array. The resulting array contains only valid <see cref="double"/> values,
+        /// and its length equals <c>Count - NullCount</c>.
+        /// </remarks>
+        /// <returns>
+        /// An array of <see cref="double"/> values representing the non-null elements in the storage.
+        /// </returns>
+        internal double[] Values
+        {
+            get
+            {
+                double[] result = new double[this.Count - this.NullIndices.Count()];
+                int resultIdx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!this.nullBitMap.IsNull(i))
+                    {
+                        result[resultIdx] = this.array[i];
+                        resultIdx++;
+                    }
+                }
+                return result;
+            }
+        }
     }
 }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DataProcessor.source.NonGenericsSeries
+﻿namespace DataProcessor.source.NonGenericsSeries
 {
     public partial class Series
     {
@@ -13,7 +7,7 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <summary>
         /// Gets the name of the series.
         /// </summary>
-        public string? Name { get { return this.seriesName; } }
+        public string? Name => seriesName;
 
         /// <summary>
         /// Gets a read-only list of values stored in the collection.
@@ -22,21 +16,19 @@ namespace DataProcessor.source.NonGenericsSeries
         {
             get
             {
-                // return a read-only view of the values
-                var readOnlyValues = new List<object?>(values.Count);
-                for (int i = 0; i < values.Count; i++)
-                {
-                    readOnlyValues.Add(values.GetValue(i));
-                }
-                return readOnlyValues;
+                return valueStorage.ToList().AsReadOnly();
             }
         }
 
         /// <summary>
         /// Gets the number of elements contained in the collection.
         /// </summary>
-        public int Count => values.Count;
-        public bool IsReadOnly { get { return false; } }
+        public int Count => valueStorage.Count;
+
+        /// <summary>
+        /// Gets a value indicating whether the collection is read-only.
+        /// </summary>
+        public bool IsReadOnly => true;
 
         /// <summary>
         /// Gets the type of data associated with this instance.
@@ -66,7 +58,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 List<object?> res = new List<object?>();
                 foreach (int i in this.index.GetIndexPosition(index))
                 {
-                    res.Add(this.values.GetValue(i));
+                    res.Add(this.valueStorage.GetValue(i));
                 }
                 return res;
             }
@@ -75,12 +67,6 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <summary>
         /// Gets a list of objects representing the current index.
         /// </summary>
-        public List<object> Index
-        {
-            get
-            {
-                return this.index.IndexList.ToList();
-            }
-        }
+        public List<object> Index => index.IndexList.ToList();
     }
 }

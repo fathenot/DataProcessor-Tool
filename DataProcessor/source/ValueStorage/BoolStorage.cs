@@ -83,5 +83,7 @@ namespace DataProcessor.source.ValueStorage
         {
             return values.GetEnumerator();
         }
+
+        internal bool[] Values => values.Cast<bool>().ToArray();
     }
 }

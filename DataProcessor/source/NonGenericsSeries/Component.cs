@@ -5,15 +5,14 @@ using System.ComponentModel;
 using System.Text;
 namespace DataProcessor.source.NonGenericsSeries
 {
+
+    // this partial class contains the components of the series class, which also includes inner classes like SeriesVIew and GroupView
     public partial class Series : ISeries
     {
-        /// <summary>
-        /// this partial class contains the core components of the Series class aka the data structure and inner classes
-        /// </summary>
 
         private string? seriesName;
         private IIndex index;
-        private AbstractValueStorage values;
+        private AbstractValueStorage valueStorage;
         public Type dataType; // data type of the series, can be null if empty or not set
 
         // handle multi threads, this will be implemented in the future
@@ -137,7 +136,7 @@ namespace DataProcessor.source.NonGenericsSeries
             /// slicing criteria.</returns>
             /// <exception cref="ArgumentException">Thrown if <paramref name="slices.start"/> or <paramref name="slices.end"/> does not exist in the view
             /// index, or if <paramref name="slices.step"/> is zero.</exception>
-            public SeriesView SliceView((object start, object end, int step) slices)
+            public SeriesView SliceView((int start, int end, int step) slices)
             {
                 if (!this._viewIndexSet.Contains(slices.start) || !this._viewIndexSet.Contains(slices.end))
                     throw new ArgumentException("Start or end index does not exist in the view index.");
@@ -181,7 +180,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 List<object?> values = new List<object?>(_indices.Count);
                 foreach (var pos in _indices)
                 {
-                    values.Add(_series.values.GetValue(pos));
+                    values.Add(_series.valueStorage.GetValue(pos));
                 }
                 return new Series(values, index: _viewIndices, dtype: _series.dataType, name: name ?? _series.seriesName, copy: true);
             }
@@ -197,14 +196,14 @@ namespace DataProcessor.source.NonGenericsSeries
                     foreach (var pos in _series.index.GetIndexPosition(index))
                     {
                         if (_indices.Contains(pos))
-                            yield return _series.values.GetValue(pos);
+                            yield return _series.valueStorage.GetValue(pos);
                     }
                 }
             }
             public IEnumerator<object?> GetEnumerator()
             {
                 foreach (var pos in _indices)
-                    yield return _series.values.GetValue(pos);
+                    yield return _series.valueStorage.GetValue(pos);
             }
 
             IEnumerator<object?> IEnumerable<object?>.GetEnumerator() => GetEnumerator();
@@ -229,7 +228,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 sb.AppendLine("--------------");
                 for (int i = 0; i < _indices.Count; i++)
                 {
-                    sb.AppendLine($"{_viewIndices[i],5} | {_series.values.GetValue(_indices[i])?.ToString() ?? "null"}");
+                    sb.AppendLine($"{_viewIndices[i],5} | {_series.valueStorage.GetValue(_indices[i])?.ToString() ?? "null"}");
                 }
                 return sb.ToString();
             }
@@ -261,8 +260,8 @@ namespace DataProcessor.source.NonGenericsSeries
         public class GroupView
         {
             private Series _series;
-            private Dictionary<object, int[]> _groups;
-            public GroupView(Series series, Dictionary<object, int[]> groups)
+            private Dictionary<object, List<int>> _groups;
+            public GroupView(Series series, Dictionary<object, List<int>> groups)
             {
                 _series = series;
                 _groups = groups;
@@ -276,7 +275,7 @@ namespace DataProcessor.source.NonGenericsSeries
             /// found, returns an empty <see cref="ReadOnlyMemory{T}"/>.</returns>
             internal ReadOnlyMemory<int> GetGroupIndices(object key)
             {
-                return _groups.TryGetValue(key, out var indices) ? indices.AsMemory() : ReadOnlyMemory<int>.Empty;
+                return _groups.TryGetValue(key, out var indices) ? indices.ToArray().AsMemory() : ReadOnlyMemory<int>.Empty;
             }
 
             /// <summary>
@@ -293,17 +292,17 @@ namespace DataProcessor.source.NonGenericsSeries
                 var result = new Dictionary<object, object>();
                 foreach (var key in this._groups.Keys)
                 {
-                    int[] indexes = this._groups[key];
+                    List<int> indexes = this._groups[key];
                     dynamic? sum = Activator.CreateInstance(type: this._series.dataType);
-                    var nullIndices = this._series.values.NullIndices.ToList(); // get null indices from the series
+                    var nullIndices = this._series.valueStorage.NullIndices.ToHashSet(); // get null indices from the series
                     var converter = TypeDescriptor.GetConverter(this._series.dataType);
                     foreach (var idx in indexes)
                     {
                         if (!nullIndices.Contains(idx)) // performance of this check is not optimal, but it is necessary to avoid null values in the sum
                         {
-                            object? val = this._series.values.GetValue(idx);
+                            object? val = this._series.valueStorage.GetValue(idx);
 
-                            dynamic convertedVal = converter.ConvertFrom(val);
+                            dynamic convertedVal = converter.ConvertFrom(val!)!;
                             sum += convertedVal;
 
                         }
@@ -323,7 +322,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 var result = new Dictionary<object, uint>();
                 foreach (var kvp in _groups)
                 {
-                    result[kvp.Key] = (uint)kvp.Value.Length;
+                    result[kvp.Key] = (uint)kvp.Value.Count;
                 }
                 return result;
             }
@@ -352,12 +351,14 @@ namespace DataProcessor.source.NonGenericsSeries
                         throw new KeyNotFoundException($"Group key '{key}' not found.");
                     foreach (var index in _groups[key])
                     {
-                        yield return _series.values.GetValue(index);
+                        yield return _series.valueStorage.GetValue(index);
                     }
                 }
             }
         }
 
+
+        // this part is iteator, which allows the series to be enumerated
         public IEnumerator<object?> GetEnumerator()
         {
             return new SeriesEnumerator(this);
@@ -394,7 +395,7 @@ namespace DataProcessor.source.NonGenericsSeries
             /// <remarks>The value of <see cref="Current"/> is undefined until the enumerator is
             /// positioned on an element within the collection. Ensure the enumerator is properly initialized and
             /// positioned before accessing this property.</remarks>
-            public object? Current => _series.values.GetValue(_currentIndex);
+            public object? Current => _series.valueStorage.GetValue(_currentIndex);
 
             /// <summary>
             /// Gets the current element in the collection being enumerated.
