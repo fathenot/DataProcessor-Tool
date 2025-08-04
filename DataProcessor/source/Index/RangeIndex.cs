@@ -42,6 +42,9 @@ namespace DataProcessor.source.Index
             }
         }
 
+        public int Start => _start;
+        public int Stop => _stop;
+        public int Step => _step;
 
         /// <summary>
         /// Creates a new index by slicing the current range with the specified start, end, and step values.
