@@ -43,6 +43,23 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        internal bool[] Value
+        {
+            get
+            {
+                bool[] result = new bool[values.Length - NullIndices.Count()];
+                int current_idx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!nullBitMap.IsNull(i))
+                    {
+                        result[current_idx] = values[i];
+                        current_idx++;
+                    }
+                }
+                return result;
+            }
+        }
         internal override nint GetNativeBufferPointer()
         {
             throw new NotImplementedException();

@@ -38,6 +38,7 @@ namespace DataProcessor.source.ValueStorage
 
             _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="IntValuesStorage"/> class with the specified values.
         /// </summary>
@@ -72,6 +73,41 @@ namespace DataProcessor.source.ValueStorage
             return _bitMap.IsNull(index) ? null : _intValues[index];
         }
 
+        internal long[] Values
+        {
+            get
+            {
+                long[] result = new long[_intValues.Length - NullIndices.Count()];
+                int current_idx = 0;
+                for (int i = 0; i < _intValues.Length; i++)
+                {
+                    if (!_bitMap.IsNull(i))
+                    {
+                        result[current_idx] = _intValues[i];
+                        current_idx++;
+                    }
+                }
+                return result;
+            }
+        }
+        internal override int Count => _intValues.Length;
+
+        internal override Type ElementType => typeof(long);
+
+        internal int CountNullValues => _bitMap.CountNulls();
+
+        internal override IEnumerable<int> NullIndices
+        {
+            get
+            {
+                for (int i = 0; i < _intValues.Length; i++)
+                {
+                    if (_bitMap.IsNull(i))
+                        yield return i;
+                }
+            }
+        }
+
         internal override void SetValue(int index, object? value)
         {
 
@@ -100,24 +136,6 @@ namespace DataProcessor.source.ValueStorage
         }
 
         internal override nint GetNativeBufferPointer() => _handle.AddrOfPinnedObject();
-
-        internal override int Count => _intValues.Length;
-
-        internal override Type ElementType => typeof(long);
-
-        internal int CountNullValues => _bitMap.CountNulls();
-
-        internal override IEnumerable<int> NullIndices
-        {
-            get
-            {
-                for (int i = 0; i < _intValues.Length; i++)
-                {
-                    if (_bitMap.IsNull(i))
-                        yield return i;
-                }
-            }
-        }
 
         public override IEnumerator<object?> GetEnumerator()
         {

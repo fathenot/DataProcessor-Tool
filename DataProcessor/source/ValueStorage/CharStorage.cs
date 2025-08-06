@@ -69,6 +69,23 @@ namespace DataProcessor.source.ValueStorage
 
         internal override int Count => chars.Length;
 
+        internal char[] Values
+        {
+            get
+            {
+                char[] result = new char[chars.Length - NullIndices.Count()];
+                int current_idx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!nullbitMap.IsNull(i))
+                    {
+                        result[current_idx] = chars[i];
+                        current_idx++;
+                    }
+                }
+                return result;
+            }
+        }
         internal override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();

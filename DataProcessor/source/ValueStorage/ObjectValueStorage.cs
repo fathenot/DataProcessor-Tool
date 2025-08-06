@@ -42,17 +42,6 @@ namespace DataProcessor.source.ValueStorage
         {
             throw new NotImplementedException();
         }
-
-        internal override object? GetValue(int index)
-        {
-            return objects[index];
-        }
-
-        internal override void SetValue(int index, object? value)
-        {
-            objects[index] = value;
-        }
-
         internal override int Count => objects.Length;
         internal override IEnumerable<int> NullIndices
         {
@@ -68,7 +57,18 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        internal object[] Values => objects.Where(element => element is not null).ToArray();
         internal override Type ElementType => typeof(object);
+
+        internal override object? GetValue(int index)
+        {
+            return objects[index];
+        }
+
+        internal override void SetValue(int index, object? value)
+        {
+            objects[index] = value;
+        }
 
         public override IEnumerator<object?> GetEnumerator()
         {

@@ -12,40 +12,43 @@ namespace DataProcessor.source.ValueStorage
         private readonly NullBitMap _nullMap;
         private readonly GCHandle _handle;
         private bool _disposed;
+        private readonly List<DateTimeKind> _kinds;
 
-        public DateTimeStorage(DateTime?[] values)
+        internal DateTimeStorage(DateTime?[] values)
         {
             _ticks = new long[values.Length];
             _nullMap = new NullBitMap(values.Length);
-
+            this._kinds = new List<DateTimeKind>(values.Length);
             for (int i = 0; i < values.Length; i++)
             {
                 if (values[i].HasValue)
                 {
                     _ticks[i] = values[i].Value.Ticks;
                     _nullMap.SetNull(i, false);
+                    _kinds.Add(values[i].Value.Kind);
                 }
                 else
                 {
                     _ticks[i] = 0; // placeholder
                     _nullMap.SetNull(i, true);
+                    _kinds.Add(DateTimeKind.Unspecified); // Default for null values
                 }
             }
 
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
-        public DateTimeStorage(DateTime[] dateTimes, bool copy = true)
+        internal DateTimeStorage(DateTime[] dateTimes)
         {
-            if (copy)
-            {
-                _ticks = new long[dateTimes.Length];
-                Array.Copy(dateTimes, _ticks, dateTimes.Length);
-            }
-            else
-            {
-                _ticks = dateTimes.Select(dt => dt.Ticks).ToArray();
-            }
+
+            _ticks = dateTimes.Select(dt => dt.Ticks).ToArray();
+            _kinds = dateTimes.Select(dt => dt.Kind).ToList();
+
+
+
+
+
+
             _nullMap = new NullBitMap(dateTimes.Length);
             for (int i = 0; i < dateTimes.Length; i++)
             {
@@ -53,9 +56,59 @@ namespace DataProcessor.source.ValueStorage
             }
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
+
+        internal DateTimeStorage(long[] ticks, List<DateTimeKind> kinds, bool copy = true)
+        {
+            // ck if ticks and kinds have the same length
+            if (ticks.Length != kinds.Count)
+                throw new ArgumentException("Ticks and kinds must have the same length.");
+
+            if (copy)
+            {
+                _ticks = new long[ticks.Length];
+                Array.Copy(ticks, _ticks, ticks.Length);
+                _kinds = new List<DateTimeKind>(kinds);
+            }
+            else
+            {
+                _ticks = ticks;
+                _kinds = kinds;
+            }
+        }
         internal override int Count => _ticks.Length;
 
         internal override Type ElementType => typeof(DateTime);
+
+        internal override IEnumerable<int> NullIndices
+        {
+            get
+            {
+                for (int i = 0; i < _ticks.Length; i++)
+                {
+                    if (_nullMap.IsNull(i))
+                        yield return i;
+                }
+            }
+        }
+
+        internal DateTime[] Values
+        {
+            get
+            {
+                var values = new DateTime[this.Count - this.NullIndices.Count()];
+                int resultIdx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!this._nullMap.IsNull(i))
+                    {
+                        values[resultIdx] = new DateTime(_ticks[i]);
+                        resultIdx++;
+                    }
+                }
+                return values;
+            }
+        }
+
 
         internal override object? GetValue(int index)
         {
@@ -111,31 +164,10 @@ namespace DataProcessor.source.ValueStorage
             throw new ArgumentException("Value must be of type DateTime or convertible to DateTime.");
         }
 
-        internal override IEnumerable<int> NullIndices
-        {
-            get
-            {
-                for (int i = 0; i < _ticks.Length; i++)
-                {
-                    if (_nullMap.IsNull(i))
-                        yield return i;
-                }
-            }
-        }
-
         internal override nint GetNativeBufferPointer()
         {
             EnsureNotDisposed();
             return _handle.AddrOfPinnedObject();
-        }
-
-        public long[] RawTicks
-        {
-            get
-            {
-                EnsureNotDisposed();
-                return _ticks;
-            }
         }
 
         public override IEnumerator<object?> GetEnumerator()

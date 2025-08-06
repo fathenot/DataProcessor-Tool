@@ -83,9 +83,26 @@ namespace DataProcessor.source.ValueStorage
             }
             handle = GCHandle.Alloc(this.array, GCHandleType.Pinned);
         }
-        internal override Type ElementType => typeof(double);
 
+        internal override Type ElementType => typeof(double);
         internal override int Count => array.Length;
+        internal double[] Values
+        {
+            get
+            {
+                double[] result = new double[array.Length - NullIndices.Count()];
+                int current_idx = 0;
+                for(int i = 0; current_idx < array.Length; i++)
+                {
+                    if (!this.nullBitMap.IsNull(i))
+                    {
+                        result[current_idx] = array[i];
+                        current_idx++;
+                    }
+                }
+                return result;
+            }
+        }
         internal override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();

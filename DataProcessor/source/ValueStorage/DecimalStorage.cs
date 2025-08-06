@@ -81,6 +81,40 @@ namespace DataProcessor.source.ValueStorage
             }
             handle = GCHandle.Alloc(this.decimals, GCHandleType.Pinned);
         }
+
+        internal override int Count => decimals.Length;
+        internal override IEnumerable<int> NullIndices
+        {
+            get
+            {
+                for (int i = 0; i < decimals.Length; i++)
+                {
+                    if (nullBitMap.IsNull(i))
+                    {
+                        yield return i;
+                    }
+                }
+            }
+        }
+        internal override Type ElementType => typeof(decimal);
+        
+        internal decimal[] Values
+        {
+            get
+            {
+                decimal[] result = new decimal[decimals.Length - NullIndices.Count()];
+                int current_idx = 0;
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (!nullBitMap.IsNull(i))
+                    {
+                        result[current_idx] = decimals[i];
+                        current_idx++;
+                    }
+                }
+                return result;
+            }
+        }
         internal override nint GetNativeBufferPointer()
         {
             return handle.AddrOfPinnedObject();
@@ -108,22 +142,7 @@ namespace DataProcessor.source.ValueStorage
             }
 
         }
-        internal override int Count => decimals.Length;
-        internal override IEnumerable<int> NullIndices
-        {
-            get
-            {
-                for (int i = 0; i < decimals.Length; i++)
-                {
-                    if (nullBitMap.IsNull(i))
-                    {
-                        yield return i;
-                    }
-                }
-            }
-        }
-        internal override Type ElementType => typeof(decimal);
-
+      
         public override IEnumerator<object?> GetEnumerator()
         {
             return new DecimalValueEnumerator(this);

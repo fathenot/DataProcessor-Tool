@@ -42,7 +42,7 @@ namespace DataProcessor.source.ValueStorage
                 this.strings = strings;
                 for (int i = 0; i < strings.Length; i++)
                 {
-                    this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? strings[i]?.Normalize(UserSettings.UserConfig.DefaultNormalizationForm) : strings[i];
+                    this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? strings[i]?.Normalize(NormalizationForm.FormC) : strings[i];
                 }
             }
             else
@@ -51,7 +51,7 @@ namespace DataProcessor.source.ValueStorage
                 for (int i = 0; i < strings.Length; i++)
                 {
                     string? s = strings[i];
-                    this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? s?.Normalize(UserSettings.UserConfig.DefaultNormalizationForm) : s;
+                    this.strings[i] = UserSettings.UserConfig.NormalizeUnicode ? s?.Normalize(NormalizationForm.FormC) : s;
                 }
             }
            
@@ -66,7 +66,23 @@ namespace DataProcessor.source.ValueStorage
             get { return strings; }
         }
 
-
+        internal string[] Values
+        {
+            get
+            {
+                string[] result = new string[strings.Length - NullIndices.Count()];
+                int current_idx = 0;
+                for (int i = 0; i < strings.Length; i++)
+                {
+                    if (strings[i] != null)
+                    {
+                        result[current_idx] = strings[i];
+                        current_idx++;
+                    }
+                }
+                return result;
+            }
+        }
         internal override Type ElementType => typeof(string);
 
         internal override nint GetNativeBufferPointer()
