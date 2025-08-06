@@ -189,7 +189,7 @@ namespace DataProcessor.source.NonGenericsSeries
                         var ListedValues = new List<object?>();
                         if (!nullsFirst)
                         {
-                            foreach( var val in nonNullVals)
+                            foreach (var val in nonNullVals)
                             {
                                 ListedValues.Add(val);
                             }
@@ -203,7 +203,7 @@ namespace DataProcessor.source.NonGenericsSeries
                             for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
                             {
                                 ListedValues.Add(null);
-                                
+
                             }
                             foreach (var val in nonNullVals)
                             {
@@ -463,7 +463,7 @@ namespace DataProcessor.source.NonGenericsSeries
                     }
                 default:
                     {
-                         throw new NotSupportedException($"Unsupport this type of data {this.GetType()}" );
+                        throw new NotSupportedException($"Unsupport this type of data {this.GetType()}");
                     }
 
             }

@@ -1,4 +1,5 @@
-﻿using DataProcessor.source.Index;
+﻿
+using DataProcessor.source.Index;
 using NUnit.Framework;
 
 namespace DataProcessor.source.NonGenericsSeries
@@ -23,8 +24,8 @@ namespace DataProcessor.source.NonGenericsSeries
         {
             // validate the index to ensure it does not contains null values (currently it doesn't check all elements are hashable)
             if (index.Contains(null)) throw new ArgumentException("index must not contain nulls");
-            
-            if(index == null || index.Count == 0) throw new ArgumentException("index must not be null or empty", nameof(index));
+
+            if (index == null || index.Count == 0) throw new ArgumentException("index must not be null or empty", nameof(index));
 
             // check if the index contains grouped elements
             if (IndexUtils.ContainsGroupedIndex(index))
@@ -42,7 +43,7 @@ namespace DataProcessor.source.NonGenericsSeries
             var datatype = Support.InferDataType(index);
             if (datatype == typeof(string))
             {
-                return new StringIndex(index.Cast<string>().ToList(), UserSettings.UserConfig.DefaultNormalizationForm);
+                return new StringIndex(index.Cast<string>().ToList());
             }
             else if (Support.IsIntegerType(datatype))
             {

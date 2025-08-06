@@ -17,7 +17,7 @@ namespace DataProcessor.source.NonGenericsSeries
         public Series Head(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than or equal to 0.");
-            return new Series (valueStorage.Take(count).ToList(),
+            return new Series(valueStorage.Take(count).ToList(),
                 index: index.IndexList.Take(count).ToList());
         }
 
@@ -35,7 +35,7 @@ namespace DataProcessor.source.NonGenericsSeries
         public Series Tail(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than or equal to 0.");
-            return new Series (valueStorage.Skip(Math.Max(0, valueStorage.Count - count)).ToList(),
+            return new Series(valueStorage.Skip(Math.Max(0, valueStorage.Count - count)).ToList(),
                 index: index.IndexList.Skip(Math.Max(0, index.IndexList.Count - count)).ToList());
         }
 
