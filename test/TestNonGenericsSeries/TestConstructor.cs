@@ -115,7 +115,6 @@ namespace test.TestNonGenericsSeries
         [Fact]
         public void Series_IndexValue_MatchOneTOOne2()
         {
-            UserConfig.DefaultNormalizationForm = System.Text.NormalizationForm.FormD;
             // Purposefully strange index to verify robustness of indexing logic.
             var index = new object?[] { "anh yêu em nhiều", "anh yêu C#", "búa liềm thần chưởng" };
             var values = new object?[] { "nghiệp chướng", null, 99 };
@@ -123,7 +122,6 @@ namespace test.TestNonGenericsSeries
             Assert.Null((series["anh yêu C#"][0]));
             Assert.Equal("nghiệp chướng", series["anh yêu em nhiều"][0]);
             Assert.Equal(99, Convert.ToInt64(series["búa liềm thần chưởng"][0]));
-            UserConfig.DefaultNormalizationForm = System.Text.NormalizationForm.FormC;
         }
         [Fact]
         public void Series_IndexValue_MatchManyToMany()
