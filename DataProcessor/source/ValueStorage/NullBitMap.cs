@@ -4,7 +4,7 @@
     /// Represents a bitmap to track null states for a collection of elements.
     /// Each bit in the bitmap corresponds to the null state of an element.
     /// </summary>
-    internal struct NullBitMap
+    internal class NullBitMap
     {
         // List of 32-bit unsigned integers, each representing 32 bits of null flags.
         private uint[] chunks;
