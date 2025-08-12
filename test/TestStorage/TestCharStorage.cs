@@ -102,16 +102,5 @@ namespace test.TestStorage
             Assert.Contains('c', typedList);
             Assert.Contains(null, typedList);
         }
-        [Fact]
-        public void RunAllTests()
-        {
-            TestCharStorageWithNulls();
-            TestCharStorageWithAllNulls();
-            TestCharStorageWithEmptyArray();
-            TestCharStorageSetValue();
-            TestApplyLinq();
-            TestEnumerator();
-            TestAsTyped();
-        }
     }
 }
