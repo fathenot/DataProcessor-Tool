@@ -1,115 +1,105 @@
-﻿using System.Collections;
+﻿using DataProcessor.source.ValueStorage;
+using System.Collections;
 using System.Runtime.InteropServices;
 
 namespace DataProcessor.source.ValueStorage
 {
     internal class CharStorage : AbstractValueStorage, IEnumerable<object?>
     {
-        char[] chars;
-        NullBitMap nullbitMap;
-        GCHandle handle;
+        private readonly char[] _chars;
+        private readonly NullBitMap _nullBitMap;
+        private readonly GCHandle _handle;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="CharStorage"/> class, storing an array of characters and tracking null
-        /// values using a bitmap.
+        /// Initializes a new instance of the <see cref="CharStorage"/> class 
+        /// with nullable character values and null tracking.
         /// </summary>
-        /// <remarks>This constructor processes the input array to separate null values from actual character values. Null
-        /// values are recorded in a bitmap for efficient tracking, while non-null values are converted to characters and stored
-        /// in the internal array. The internal array is pinned in memory using a <see cref="GCHandle"/> to ensure it remains
-        /// accessible during operations.</remarks>
-        /// <param name="chars">An array of nullable characters to be stored. Null values are tracked separately and replaced with the default
-        /// character value (<see langword="'\0'"/>).</param>
+        /// <param name="chars">An array of nullable characters. Nulls are tracked separately.</param>
         public CharStorage(char?[] chars)
         {
-            this.chars = new char[chars.Length];
-            nullbitMap = new NullBitMap(chars.Length);
-            for (int i = 0; i < chars.Length; i++)
+            _chars = new char[chars.Length];
+            _nullBitMap = new NullBitMap(chars.Length);
+
+            for (var i = 0; i < chars.Length; i++)
             {
                 if (chars[i] == null)
                 {
-                    nullbitMap.SetNull(i, true);
-                    this.chars[i] = default;
+                    _nullBitMap.SetNull(i, true);
+                    _chars[i] = default;
                 }
                 else
                 {
-                    this.chars[i] = Convert.ToChar(chars[i]);
-                    nullbitMap.SetNull(i, false);
+                    _chars[i] = chars[i].Value;
+                    _nullBitMap.SetNull(i, false);
                 }
             }
-            handle = GCHandle.Alloc(this.chars, GCHandleType.Pinned);
+
+            _handle = GCHandle.Alloc(_chars, GCHandleType.Pinned);
         }
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="CharStorage"/> class, which manages a collection of characters
-        /// with optional copying and nullability tracking.
+        /// Initializes a new instance of the <see cref="CharStorage"/> class 
+        /// with character values and optional copying.
         /// </summary>
-        /// <remarks>If <paramref name="copy"/> is <see langword="false"/>, the caller must ensure that
-        /// the provided array is not modified externally while being managed by this instance. The class also
-        /// initializes a nullability map for the characters, marking all characters as non-null by default.</remarks>
-        /// <param name="chars">An array of characters to be managed by this instance. Cannot be null.</param>
-        /// <param name="copy">A boolean value indicating whether the provided <paramref name="chars"/> array should be copied. If <see
-        /// langword="true"/>, the array is copied; otherwise, the instance directly references the provided array.</param>
+        /// <param name="chars">An array of characters.</param>
+        /// <param name="copy">
+        /// Whether to copy the array. If false, the provided array is used directly.
+        /// </param>
         internal CharStorage(char[] chars, bool copy = true)
         {
-            if (copy)
+            _chars = copy ? (char[])chars.Clone() : chars;
+            _nullBitMap = new NullBitMap(chars.Length);
+
+            for (var i = 0; i < chars.Length; i++)
             {
-                this.chars = new char[chars.Length];
-                Array.Copy(chars, this.chars, chars.Length);
+                _nullBitMap.SetNull(i, false);
             }
-            else
-            {
-                this.chars = chars;
-            }
-            this.nullbitMap = new NullBitMap(chars.Length);
-            for (int i = 0; i < chars.Length; i++)
-            {
-                nullbitMap.SetNull(i, false);
-            }
-            handle = GCHandle.Alloc(this.chars, GCHandleType.Pinned);
+
+            _handle = GCHandle.Alloc(_chars, GCHandleType.Pinned);
         }
+
         internal override Type ElementType => typeof(char);
 
-        internal override int Count => chars.Length;
+        internal override int Count => _chars.Length;
 
-        internal char[] Values
+        internal char[] NonNullValues
         {
             get
             {
-                char[] result = new char[chars.Length - NullIndices.Count()];
-                int current_idx = 0;
-                for (int i = 0; i < this.Count; i++)
+                var nonNullCount = Count - _nullBitMap.CountNulls();
+                var result = new char[nonNullCount];
+
+                var currentIndex = 0;
+                for (var i = 0; i < Count; i++)
                 {
-                    if (!nullbitMap.IsNull(i))
+                    if (!_nullBitMap.IsNull(i))
                     {
-                        result[current_idx] = chars[i];
-                        current_idx++;
+                        result[currentIndex++] = _chars[i];
                     }
                 }
+
                 return result;
             }
         }
+
         internal override nint GetNativeBufferPointer()
         {
-            return handle.AddrOfPinnedObject();
+            return _handle.AddrOfPinnedObject();
         }
 
         internal override object? GetValue(int index)
         {
-            if (nullbitMap.IsNull(index))
-            {
-                return null;
-            }
-            return chars[index];
+            return _nullBitMap.IsNull(index) ? null : _chars[index];
         }
 
         internal override IEnumerable<int> NullIndices
         {
             get
             {
-                for (int i = 0; i < chars.Length; i++)
+                for (var i = 0; i < _chars.Length; i++)
                 {
-                    if (nullbitMap.IsNull(i))
-                    {
+                    if (_nullBitMap.IsNull(i))
                         yield return i;
-                    }
                 }
             }
         }
@@ -118,50 +108,26 @@ namespace DataProcessor.source.ValueStorage
         {
             if (index < 0 || index >= Count)
             {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for storage with count {Count}.");
+                throw new IndexOutOfRangeException(
+                    $"Index {index} is out of range for storage with count {Count}.");
             }
+
             if (value is char charValue)
             {
-                chars[index] = charValue;
-                nullbitMap.SetNull(index, false);
+                _chars[index] = charValue;
+                _nullBitMap.SetNull(index, false);
             }
             else if (value is null)
             {
-                chars[index] = default;
-                nullbitMap.SetNull(index, true);
+                _chars[index] = default;
+                _nullBitMap.SetNull(index, true);
             }
             else
             {
-                throw new ArgumentException($"Expected a value of type {typeof(char)} or null.");
+                throw new ArgumentException(
+                    $"Expected a value of type {typeof(char)} or null.",
+                    nameof(value));
             }
-
-        }
-
-
-        private sealed class CharValueEnumerator : IEnumerator<object?>
-        {
-            /// <summary>
-            /// this class make for creating enumerator
-            /// </summary>
-
-            private readonly CharStorage storage;
-            private int currentIndex = -1;
-            public CharValueEnumerator(CharStorage storage)
-            {
-                this.storage = storage;
-            }
-            public object? Current => storage.GetValue(currentIndex);
-            object? System.Collections.IEnumerator.Current => Current;
-            public bool MoveNext()
-            {
-                currentIndex++;
-                return currentIndex < storage.Count;
-            }
-            public void Reset()
-            {
-                currentIndex = -1;
-            }
-            public void Dispose() { }
         }
 
         public override IEnumerator<object?> GetEnumerator()
@@ -171,14 +137,42 @@ namespace DataProcessor.source.ValueStorage
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return new CharValueEnumerator(this);
+            return GetEnumerator();
+        }
+
+        private sealed class CharValueEnumerator : IEnumerator<object?>
+        {
+            private readonly CharStorage _storage;
+            private int _currentIndex = -1;
+
+            public CharValueEnumerator(CharStorage storage)
+            {
+                _storage = storage;
+            }
+
+            public object? Current => _storage.GetValue(_currentIndex);
+
+            object? IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                _currentIndex++;
+                return _currentIndex < _storage.Count;
+            }
+
+            public void Reset()
+            {
+                _currentIndex = -1;
+            }
+
+            public void Dispose() { }
         }
 
         ~CharStorage()
         {
-            if (handle.IsAllocated)
+            if (_handle.IsAllocated)
             {
-                handle.Free();
+                _handle.Free();
             }
         }
     }

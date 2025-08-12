@@ -9,9 +9,20 @@ namespace DataProcessor.source.ValueStorage
     internal class IntValuesStorage : AbstractValueStorage, IEnumerable<object?>, IDisposable
     {
         private readonly long[] _intValues;
-        private readonly NullBitMap _bitMap;
+        private readonly NullBitMap _nullBitMap;
         private readonly GCHandle _handle;
-        bool disposed = false;
+        private bool disposed = false;
+
+        /// <summary>
+        /// Validates whether the specified index is within the bounds of the internal collection.
+        /// </summary>
+        /// <param name="index">The index to validate. Must be greater than or equal to 0 and less than the length of the collection.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="index"/> is less than 0 or greater than or equal to the length of the collection.</exception>
+        private void ValidateIndex(int index)
+        {
+            if (index < 0 || index >= _intValues.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IntValuesStorage"/> class, storing a collection of nullable
@@ -25,7 +36,7 @@ namespace DataProcessor.source.ValueStorage
         internal IntValuesStorage(long?[] values)
         {
             _intValues = new long[values.Length];
-            _bitMap = new NullBitMap(values.Length);
+            _nullBitMap = new NullBitMap(values.Length);
 
             for (int i = 0; i < values.Length; i++)
             {
@@ -33,7 +44,7 @@ namespace DataProcessor.source.ValueStorage
                 {
                     _intValues[i] = values[i].Value;
                 }
-                _bitMap.SetNull(i, !values[i].HasValue);
+                _nullBitMap.SetNull(i, !values[i].HasValue);
             }
 
             _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
@@ -60,20 +71,23 @@ namespace DataProcessor.source.ValueStorage
             {
                 _intValues = values;
             }
-            _bitMap = new NullBitMap(values.Length);
+            _nullBitMap = new NullBitMap(values.Length);
             for (int i = 0; i < values.Length; i++)
             {
-                _bitMap.SetNull(i, false);
+                _nullBitMap.SetNull(i, false);
             }
             _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
         }
         internal override object? GetValue(int index)
         {
             ValidateIndex(index);
-            return _bitMap.IsNull(index) ? null : _intValues[index];
+            return _nullBitMap.IsNull(index) ? null : _intValues[index];
         }
 
-        internal long[] Values
+        /// <summary>
+        /// Gets an array containing all non-null long values in the collection.
+        /// </summary>
+        internal long[] NonNullValues
         {
             get
             {
@@ -81,7 +95,7 @@ namespace DataProcessor.source.ValueStorage
                 int current_idx = 0;
                 for (int i = 0; i < _intValues.Length; i++)
                 {
-                    if (!_bitMap.IsNull(i))
+                    if (!_nullBitMap.IsNull(i))
                     {
                         result[current_idx] = _intValues[i];
                         current_idx++;
@@ -94,7 +108,7 @@ namespace DataProcessor.source.ValueStorage
 
         internal override Type ElementType => typeof(long);
 
-        internal int CountNullValues => _bitMap.CountNulls();
+        internal int CountNullValues => _nullBitMap.CountNulls();
 
         internal override IEnumerable<int> NullIndices
         {
@@ -102,7 +116,7 @@ namespace DataProcessor.source.ValueStorage
             {
                 for (int i = 0; i < _intValues.Length; i++)
                 {
-                    if (_bitMap.IsNull(i))
+                    if (_nullBitMap.IsNull(i))
                         yield return i;
                 }
             }
@@ -114,7 +128,7 @@ namespace DataProcessor.source.ValueStorage
             ValidateIndex(index);
             if (value is null)
             {
-                _bitMap.SetNull(index, true);
+                _nullBitMap.SetNull(index, true);
                 _intValues[index] = default;
                 return;
             }
@@ -123,7 +137,7 @@ namespace DataProcessor.source.ValueStorage
                 try
                 {
                     _intValues[index] = Convert.ToInt64(convertible);
-                    _bitMap.SetNull(index, false);
+                    _nullBitMap.SetNull(index, false);
                     return;
                 }
                 catch (Exception e)
@@ -170,16 +184,11 @@ namespace DataProcessor.source.ValueStorage
         }
 
         /// <summary>
-        /// Validates whether the specified index is within the bounds of the internal collection.
+        /// Enumerates the elements of an <see cref="IntValuesStorage"/> collection.
         /// </summary>
-        /// <param name="index">The index to validate. Must be greater than or equal to 0 and less than the length of the collection.</param>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="index"/> is less than 0 or greater than or equal to the length of the collection.</exception>
-        private void ValidateIndex(int index)
-        {
-            if (index < 0 || index >= _intValues.Length)
-                throw new ArgumentOutOfRangeException(nameof(index));
-        }
-
+        /// <remarks>This enumerator allows iteration over the values stored in an <see
+        /// cref="IntValuesStorage"/> instance. It maintains the current position within the collection and provides
+        /// access to the current element.</remarks>
         private sealed class Enumerator : IEnumerator<object?>
         {
             private IntValuesStorage storage;

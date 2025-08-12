@@ -1,65 +1,93 @@
-﻿using System.Collections;
+﻿using DataProcessor.source.ValueStorage;
+using System.Collections;
 
 namespace DataProcessor.source.ValueStorage
 {
     internal class BoolStorage : AbstractValueStorage, IEnumerable<object?>
     {
-        private readonly BitArray values;
-        private readonly NullBitMap nullBitMap;
+        private readonly BitArray _values;
+        private readonly NullBitMap _nullBitMap;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BoolStorage"/> class 
+        /// using the specified array of nullable Boolean values.
+        /// </summary>
+        /// <param name="bools">
+        /// An array of nullable Boolean values to initialize the storage. 
+        /// Each element represents a Boolean value or a null entry.
+        /// </param>
         internal BoolStorage(bool?[] bools)
         {
-            int len = bools.Length;
-            values = new BitArray(len);
-            nullBitMap = new NullBitMap(len);
-            for (int i = 0; i < len; i++)
+            var length = bools.Length;
+            _values = new BitArray(length);
+            _nullBitMap = new NullBitMap(length);
+
+            for (var i = 0; i < length; i++)
             {
                 if (bools[i].HasValue)
                 {
-                    values[i] = bools[i].Value;
+                    _values[i] = bools[i].Value;
                 }
                 else
                 {
-                    // null: không set value, nhưng đánh dấu null = true
-                    values[i] = false; // placeholder, không quan trọng
-                    nullBitMap.SetNull(i, true);
+                    _values[i] = false; // Placeholder for nulls
+                    _nullBitMap.SetNull(i, true);
                 }
             }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BoolStorage"/> class 
+        /// using the specified array of Boolean values.
+        /// </summary>
+        /// <param name="bools">
+        /// The array of Boolean values to initialize the storage with.
+        /// </param>
         internal BoolStorage(bool[] bools)
         {
-            this.values = new BitArray(bools);
+            _values = new BitArray(bools);
+            _nullBitMap = new NullBitMap(bools.Length);
         }
 
-        internal override int Count => values.Count;
+        internal override int Count => _values.Count;
+
         internal override Type ElementType => typeof(bool);
 
         internal override IEnumerable<int> NullIndices
         {
             get
             {
-                for (int i = 0; i < values.Length; i++)
-                    if (nullBitMap.IsNull(i)) yield return i;
+                for (int i = 0; i < _values.Length; i++)
+                {
+                    if (_nullBitMap.IsNull(i))
+                        yield return i;
+                }
             }
         }
 
-        internal bool[] Value
+        /// <summary>
+        /// Gets all non-null values from the storage.
+        /// </summary>
+        internal bool[] NonNullValues
         {
             get
             {
-                bool[] result = new bool[values.Length - NullIndices.Count()];
-                int current_idx = 0;
-                for (int i = 0; i < this.Count; i++)
+                var result = new bool[_values.Length - _nullBitMap.CountNulls()];
+                var currentIndex = 0;
+
+                for (var i = 0; i < Count; i++)
                 {
-                    if (!nullBitMap.IsNull(i))
+                    if (!_nullBitMap.IsNull(i))
                     {
-                        result[current_idx] = values[i];
-                        current_idx++;
+                        result[currentIndex] = _values[i];
+                        currentIndex++;
                     }
                 }
+
                 return result;
             }
         }
+
         internal override nint GetNativeBufferPointer()
         {
             throw new NotImplementedException();
@@ -67,38 +95,37 @@ namespace DataProcessor.source.ValueStorage
 
         internal override object? GetValue(int index)
         {
-            return values[index];
+            return _values[index];
         }
 
         internal override void SetValue(int index, object? value)
         {
             if (value == null)
             {
-                nullBitMap.SetNull(index, true);
+                _nullBitMap.SetNull(index, true);
                 return;
             }
-            else if (value is bool b)
+
+            if (value is bool b)
             {
-                values[index] = b;
+                _values[index] = b;
                 return;
             }
-            throw new ArgumentException("value must be boolean value or null");
+
+            throw new ArgumentException("Value must be a boolean or null.", nameof(value));
         }
 
         public override IEnumerator<object?> GetEnumerator()
         {
-            for (int i = 0; i < values.Length; i++)
+            for (var i = 0; i < _values.Length; i++)
             {
-                if (nullBitMap.IsNull(i))
-                    yield return null;
-                else
-                    yield return values[i];
+                yield return _nullBitMap.IsNull(i) ? null : _values[i];
             }
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return values.GetEnumerator();
+            return _values.GetEnumerator();
         }
     }
 }

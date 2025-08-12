@@ -14,6 +14,16 @@ namespace DataProcessor.source.ValueStorage
         private bool _disposed;
         private readonly List<DateTimeKind> _kinds;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DateTimeStorage"/> class using the specified array of nullable
+        /// <see cref="DateTime"/> values.
+        /// </summary>
+        /// <remarks>The storage preserves both the tick count and the <see cref="DateTimeKind"/> for each
+        /// non-null value. Null values are tracked and assigned a default kind of <see
+        /// cref="DateTimeKind.Unspecified"/>.</remarks>
+        /// <param name="values">An array of nullable <see cref="DateTime"/> values to be stored. Each element represents a value to be
+        /// tracked by the storage; elements with a value of <see langword="null"/> are treated as missing or
+        /// unspecified dates.</param>
         internal DateTimeStorage(DateTime?[] values)
         {
             _ticks = new long[values.Length];
@@ -38,17 +48,19 @@ namespace DataProcessor.source.ValueStorage
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DateTimeStorage"/> class with the specified array of <see
+        /// cref="DateTime"/> values.
+        /// </summary>
+        /// <remarks>The storage preserves both the tick values and the <see cref="DateTimeKind"/> of each
+        /// element in the input array. All entries are considered non-null upon initialization.</remarks>
+        /// <param name="dateTimes">An array of <see cref="DateTime"/> values to be stored. Each element is used to initialize the storage; the
+        /// array must not be null.</param>
         internal DateTimeStorage(DateTime[] dateTimes)
         {
 
             _ticks = dateTimes.Select(dt => dt.Ticks).ToArray();
             _kinds = dateTimes.Select(dt => dt.Kind).ToList();
-
-
-
-
-
-
             _nullMap = new NullBitMap(dateTimes.Length);
             for (int i = 0; i < dateTimes.Length; i++)
             {
@@ -57,6 +69,24 @@ namespace DataProcessor.source.ValueStorage
             _handle = GCHandle.Alloc(_ticks, GCHandleType.Pinned);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DateTimeStorage"/> class with the specified tick values and
+        /// corresponding <see cref="DateTimeKind"/> values.
+        /// </summary>
+        /// <remarks>If <paramref name="copy"/> is set to <see langword="false"/>, changes to the provided
+        /// <paramref name="ticks"/> array or <paramref name="kinds"/> list after construction will affect the internal
+        /// state of the <see cref="DateTimeStorage"/> instance. For most scenarios, it is recommended to use the
+        /// default value (<see langword="true"/>) to avoid unintended side effects.</remarks>
+        /// <param name="ticks">An array of 64-bit integers representing the number of ticks for each <see cref="DateTime"/> value to store.
+        /// The length of this array must match the number of elements in <paramref name="kinds"/>.</param>
+        /// <param name="kinds">A list of <see cref="DateTimeKind"/> values indicating the kind (local, UTC, or unspecified) for each
+        /// corresponding tick value in <paramref name="ticks"/>. The number of elements must match the length of
+        /// <paramref name="ticks"/>.</param>
+        /// <param name="copy"><see langword="true"/> to create copies of the <paramref name="ticks"/> array and <paramref name="kinds"/>
+        /// list; <see langword="false"/> to use the provided references directly. The default is <see
+        /// langword="true"/>.</param>
+        /// <exception cref="ArgumentException">Thrown when the length of <paramref name="ticks"/> does not match the number of elements in <paramref
+        /// name="kinds"/>.</exception>
         internal DateTimeStorage(long[] ticks, List<DateTimeKind> kinds, bool copy = true)
         {
             // ck if ticks and kinds have the same length
@@ -74,7 +104,10 @@ namespace DataProcessor.source.ValueStorage
                 _ticks = ticks;
                 _kinds = kinds;
             }
+            this._nullMap = new NullBitMap(ticks.Length);
         }
+
+        // Properties
         internal override int Count => _ticks.Length;
 
         internal override Type ElementType => typeof(DateTime);
@@ -91,7 +124,10 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        internal DateTime[] Values
+        /// <summary>
+        /// Gets an array containing all non-null <see cref="DateTime"/> values in the collection.
+        /// </summary>
+        internal DateTime[] NonNullValues
         {
             get
             {
@@ -109,11 +145,11 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-
+        // Methods
         internal override object? GetValue(int index)
         {
             ValidateIndex(index);
-            return _nullMap.IsNull(index) ? null : new DateTime(_ticks[index], DateTimeKind.Utc);
+            return _nullMap.IsNull(index) ? null : new DateTime(_ticks[index], _kinds[index]);
         }
 
         internal override void SetValue(int index, object? value)
@@ -131,6 +167,7 @@ namespace DataProcessor.source.ValueStorage
             {
                 _ticks[index] = dt.Ticks;
                 _nullMap.SetNull(index, false);
+                _kinds[index] = dt.Kind;
                 return;
             }
 
@@ -140,6 +177,7 @@ namespace DataProcessor.source.ValueStorage
                                       System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
                 {
                     _ticks[index] = parsed.Ticks;
+                    _kinds[index] = parsed.Kind;
                     _nullMap.SetNull(index, false);
                     return;
                 }

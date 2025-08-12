@@ -57,6 +57,7 @@ namespace DataProcessor.source.ValueStorage
            
         }
 
+        // Properties
 
         /// <summary>
         /// Gets an array of strings.
@@ -66,7 +67,10 @@ namespace DataProcessor.source.ValueStorage
             get { return strings; }
         }
 
-        internal string[] Values
+        /// <summary>
+        /// Gets an array containing all non-null string values.
+        /// </summary>
+        internal string[] NonNullValues
         {
             get
             {
@@ -85,6 +89,7 @@ namespace DataProcessor.source.ValueStorage
         }
         internal override Type ElementType => typeof(string);
 
+        // Methods
         internal override nint GetNativeBufferPointer()
         {
             throw new NotSupportedException("StringStorage does not support native buffer pointer access.");

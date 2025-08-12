@@ -5,7 +5,7 @@ namespace DataProcessor.source.ValueStorage
 {
     internal class DecimalStorage : AbstractValueStorage, IEnumerable<object?>
     {
-        private readonly decimal[] decimals;
+        private readonly decimal[] values;
         private NullBitMap nullBitMap;
         private GCHandle handle;
 
@@ -18,7 +18,7 @@ namespace DataProcessor.source.ValueStorage
         /// cref="decimals"/> array.</exception>
         private void ValidateIndex(int index)
         {
-                       if (index < 0 || index >= decimals.Length)
+                       if (index < 0 || index >=values.Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
             }
@@ -35,7 +35,7 @@ namespace DataProcessor.source.ValueStorage
         /// <param name="decimals">An array of nullable decimal values to be stored. Null values are tracked using a null bitmap.</param>
         internal DecimalStorage(decimal?[] decimals)
         {
-            this.decimals = new decimal[decimals.Length];
+            this.values = new decimal[decimals.Length];
             nullBitMap = new NullBitMap(decimals.Length);
             handle = GCHandle.Alloc(decimals, GCHandleType.Pinned);
             for (int i = 0; i < decimals.Length; i++)
@@ -43,11 +43,11 @@ namespace DataProcessor.source.ValueStorage
                 if (decimals[i] == null)
                 {
                     nullBitMap.SetNull(i, true);
-                    this.decimals[i] = default; // Set to default value for decimal
+                    this.values[i] = default; // Set to default value for decimal
                 }
                 else
                 {
-                    this.decimals[i] = Convert.ToDecimal(decimals[i]);
+                    this.values[i] = Convert.ToDecimal(decimals[i]);
                     nullBitMap.SetNull(i, false);
                 }
             }
@@ -67,27 +67,28 @@ namespace DataProcessor.source.ValueStorage
         {
             if (copy)
             {
-                this.decimals = new decimal[decimals.Length];
-                Array.Copy(decimals, this.decimals, decimals.Length);
+                this.values = new decimal[decimals.Length];
+                Array.Copy(decimals, this.values, decimals.Length);
             }
             else
             {
-                this.decimals = decimals;
+                this.values = decimals;
             }
             nullBitMap = new NullBitMap(decimals.Length);
             for (int i = 0; i < decimals.Length; i++)
             {
                 nullBitMap.SetNull(i, false); // Initially set all to not null
             }
-            handle = GCHandle.Alloc(this.decimals, GCHandleType.Pinned);
+            handle = GCHandle.Alloc(this.values, GCHandleType.Pinned);
         }
 
-        internal override int Count => decimals.Length;
+        // Properties
+        internal override int Count => values.Length;
         internal override IEnumerable<int> NullIndices
         {
             get
             {
-                for (int i = 0; i < decimals.Length; i++)
+                for (int i = 0; i < values.Length; i++)
                 {
                     if (nullBitMap.IsNull(i))
                     {
@@ -97,18 +98,20 @@ namespace DataProcessor.source.ValueStorage
             }
         }
         internal override Type ElementType => typeof(decimal);
-        
-        internal decimal[] Values
+        /// <summary>
+        /// Gets an array containing all non-null decimal values in the collection.
+        /// </summary>
+        internal decimal[] NonNullValues
         {
             get
             {
-                decimal[] result = new decimal[decimals.Length - NullIndices.Count()];
+                decimal[] result = new decimal[values.Length - nullBitMap.CountNulls()];
                 int current_idx = 0;
                 for (int i = 0; i < this.Count; i++)
                 {
                     if (!nullBitMap.IsNull(i))
                     {
-                        result[current_idx] = decimals[i];
+                        result[current_idx] = values[i];
                         current_idx++;
                     }
                 }
@@ -121,7 +124,7 @@ namespace DataProcessor.source.ValueStorage
         }
         internal override object? GetValue(int index)
         {
-            return nullBitMap.IsNull(index) ? null : decimals[index];
+            return nullBitMap.IsNull(index) ? null : values[index];
         }
         internal override void SetValue(int index, object? value)
         {
@@ -133,12 +136,12 @@ namespace DataProcessor.source.ValueStorage
             if (value is null)
             {
                 nullBitMap.SetNull(index, true);
-                decimals[index] = default; // Set to default value for decimal
+                values[index] = default; // Set to default value for decimal
             }
             else
             {
                 nullBitMap.SetNull(index, false);
-                decimals[index] = Convert.ToDecimal(value);
+                values[index] = Convert.ToDecimal(value);
             }
 
         }
@@ -160,6 +163,10 @@ namespace DataProcessor.source.ValueStorage
                 handle.Free(); // Free the pinned handle to prevent memory leaks
             }
         }
+
+        /// <summary>
+        /// this class defines the enumerator for DecimalValueStorage 
+        /// </summary>
         private sealed class DecimalValueEnumerator : IEnumerator<object?>
         {
             DecimalStorage storage;

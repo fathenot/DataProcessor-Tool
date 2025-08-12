@@ -57,7 +57,10 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
-        internal object[] Values => objects.Where(element => element is not null).ToArray();
+        /// <summary>
+        /// Gets an array containing all non-null elements from the underlying collection.
+        /// </summary>
+        internal object[] NonNullValues => objects.Where(element => element is not null).ToArray();
         internal override Type ElementType => typeof(object);
 
         internal override object? GetValue(int index)

@@ -8,7 +8,7 @@ namespace DataProcessor.source.ValueStorage
     /// </summary>
     internal class DoubleValueStorage : AbstractValueStorage, IEnumerable<object?>
     {
-        private readonly double[] array;
+        private readonly double[] values;
         NullBitMap nullBitMap;
         GCHandle handle;
 
@@ -19,7 +19,7 @@ namespace DataProcessor.source.ValueStorage
         /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="index"/> is less than 0 or greater than or equal to the length of the array.</exception>
         private void ValidateIndex(int index)
         {
-            if (index < 0 || index >= array.Length)
+            if (index < 0 || index >= values.Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
             }
@@ -36,18 +36,18 @@ namespace DataProcessor.source.ValueStorage
         /// tracked using a null bitmap.</param>
         internal DoubleValueStorage(double?[] array)
         {
-            this.array = new double[array.Length];
+            this.values = new double[array.Length];
             nullBitMap = new NullBitMap(array.Length);
             for (int i = 0; i < array.Length; i++)
             {
                 if (array[i] == null)
                 {
                     nullBitMap.SetNull(i, true);
-                    this.array[i] = default;
+                    this.values[i] = default;
                 }
                 else
                 {
-                    this.array[i] = Convert.ToDouble(array[i]);
+                    this.values[i] = Convert.ToDouble(array[i]);
                     nullBitMap.SetNull(i, false);
                 }
                 handle = GCHandle.Alloc(array, GCHandleType.Pinned);
@@ -69,34 +69,35 @@ namespace DataProcessor.source.ValueStorage
         {
             if (copy)
             {
-                this.array = new double[array.Length];
-                Array.Copy(array, this.array, array.Length);
+                this.values = new double[array.Length];
+                Array.Copy(array, this.values, array.Length);
             }
             else
             {
-                this.array = array;
+                this.values = array;
             }
             nullBitMap = new NullBitMap(array.Length);
             for (int i = 0; i < array.Length; i++)
             {
                 nullBitMap.SetNull(i, false);
             }
-            handle = GCHandle.Alloc(this.array, GCHandleType.Pinned);
+            handle = GCHandle.Alloc(this.values, GCHandleType.Pinned);
         }
-
+        
+        // Properties
         internal override Type ElementType => typeof(double);
-        internal override int Count => array.Length;
-        internal double[] Values
+        internal override int Count => values.Length;
+        internal double[] NonNullValues
         {
             get
             {
-                double[] result = new double[array.Length - NullIndices.Count()];
+                double[] result = new double[values.Length - NullIndices.Count()];
                 int current_idx = 0;
-                for(int i = 0; current_idx < array.Length; i++)
+                for(int i = 0; current_idx < values.Length; i++)
                 {
                     if (!this.nullBitMap.IsNull(i))
                     {
-                        result[current_idx] = array[i];
+                        result[current_idx] = values[i];
                         current_idx++;
                     }
                 }
@@ -110,14 +111,14 @@ namespace DataProcessor.source.ValueStorage
         internal override object? GetValue(int index)
         {
             ValidateIndex(index);
-            return nullBitMap.IsNull(index) ? null : array[index];
+            return nullBitMap.IsNull(index) ? null : values[index];
         }
 
         internal override IEnumerable<int> NullIndices
         {
             get
             {
-                for (int i = 0; i < array.Length; i++)
+                for (int i = 0; i < values.Length; i++)
                 {
                     if (nullBitMap.IsNull(i))
                     {
@@ -132,13 +133,13 @@ namespace DataProcessor.source.ValueStorage
             ValidateIndex(index);
             if (value is double || value is float)
             {
-                array[index] = (double)value;
+                values[index] = (double)value;
                 nullBitMap.SetNull(index, false);
                 return;
             }
             if (value is null)
             {
-                array[index] = default;
+                values[index] = default;
                 nullBitMap.SetNull(index, true);
                 return;
             }
