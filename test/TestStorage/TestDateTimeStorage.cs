@@ -57,7 +57,7 @@ namespace test.TestStorage
         {
             var dateTimeStorage = new DateTimeStorage(new DateTime?[] { DateTime.Now, null, DateTime.UtcNow });
             var result = dateTimeStorage.AsTyped<DateTime?>().Where(dt => dt.HasValue && dt.Value.Kind == DateTimeKind.Utc).ToList();
-            Assert.Equal(2, result.Count);
+            Assert.Equal(1, result.Count);
             Assert.Equal(DateTimeKind.Utc, result[0].Value.Kind);
         }
 
@@ -96,8 +96,8 @@ namespace test.TestStorage
             var dt = DateTime.UtcNow;
             var storage = new DateTimeStorage(new DateTime?[] { null });
             storage.SetValue(0, dt.ToString("o"));
-
             Assert.Equal(dt.ToString("o"), ((DateTime)storage.GetValue(0)).ToString("o"));
+            Assert.Equal(dt.Kind, ((DateTime)storage.GetValue(0)).Kind);
         }
 
     }
