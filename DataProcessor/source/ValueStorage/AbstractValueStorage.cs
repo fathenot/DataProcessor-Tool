@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("test")]
 
@@ -64,33 +62,36 @@ namespace DataProcessor.source.ValueStorage
         }
 
         /// <summary>
-        /// Enumerates the elements of the collection that can be cast to the specified type.
+        /// Converts the elements of the collection to the specified type and returns them as an enumerable sequence.
         /// </summary>
-        /// <remarks>Elements that cannot be cast to the specified type are skipped. This method uses
-        /// deferred execution.</remarks>
-        /// <typeparam name="T">The type to which the elements should be cast.</typeparam>
-        /// <returns>An <see cref="IEnumerable{T}"/> containing the elements of the collection that are successfully cast to type
-        /// <typeparamref name="T"/>.</returns>
-        public IEnumerable<T?> AsTyped<T>()
+        /// <typeparam name="T">The target type to which the elements will be cast.</typeparam>
+        /// <returns>An <see cref="IEnumerable{T}"/> containing the elements of the collection cast to the specified type. If an
+        /// element is <see langword="null"/>, the default value of type <typeparamref name="T"/> is returned.</returns>
+        internal IEnumerable<T?> AsTyped<T>()
         {
-            for (int i = 0; i < Count; i++)
+            bool sameType = typeof(T).IsAssignableFrom(ElementType);
+            if (sameType)
             {
-                var value = GetValue(i);
-
-                if (value is null)
+                for (int i = 0; i < Count; i++)
                 {
-                    yield return default; // null vẫn là T? nếu T là struct
-                }
-                else if (value is T t)
-                {
-                    yield return t;
-                }
-                else
-                {
-                    throw new InvalidCastException($"Cannot cast value at index {i} to type {typeof(T)}.");
+                    var value = GetValue(i);
+                    yield return (T?)value;
                 }
             }
+            else
+            {
+                for (int i = 0; i < Count; i++)
+                {
+                    var value = GetValue(i);
+                    if (value == null)
+                        yield return default;
+                    else
+                        yield return (T?)Convert.ChangeType(value, typeof(T));
+                }
+            }
+
         }
+
 
 
         // currently unused, but may be used in the future for transaction support
