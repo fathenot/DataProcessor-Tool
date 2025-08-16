@@ -2,6 +2,7 @@
 using DataProcessor.source.ValueStorage;
 using System.Collections;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text;
 namespace DataProcessor.source.NonGenericsSeries
 {
@@ -20,71 +21,99 @@ namespace DataProcessor.source.NonGenericsSeries
         private ReaderWriterLock readerWriterLock = new ReaderWriterLock();
 
         /// <summary>
-        /// Represents a sliced view of a <see cref="Series"/> object, allowing access to a subset of its
-        /// data.
+        /// Represents a view over a <see cref="Series"/>, allowing slicing and filtering without copying all data.
         /// </summary>
-        /// <remarks>A <see cref="SeriesView"/> provides a way to work with a subset of the data in a <see
-        /// cref="Series"/>. It supports slicing by index ranges, specific index values, or step intervals. The view
-        /// maintains a mapping between the original series indices and the indices in the view, enabling efficient
-        /// lookups.  This class is enumerable, allowing iteration over the values in the view. It also provides methods
-        /// for creating new views based on slices or converting the view back into a <see cref="Series"/>.</remarks>
         public class SeriesView : IEnumerable<object?>
         {
             private readonly Series _series;
-            private readonly List<int> _indices; // positions in the original series
-            private readonly List<object> _viewIndices; // corresponding indices
-            private readonly HashSet<object?> _viewIndexSet; // for fast lookup
+            private readonly List<int> _indices;       // Positions in the original series
+            private readonly List<object> _viewIndices; // Corresponding index values
+            private readonly HashSet<object?> _viewIndexSet; // For fast index existence lookup
 
-            // Primary constructor for internal use
+            #region Constructors
+
+            /// <summary>
+            /// Internal constructor used to create a view with pre-computed indices.
+            /// </summary>
             internal SeriesView(Series series, List<int> indices, List<object> viewIndices)
             {
-                _series = series;
-                _indices = indices;
-                _viewIndices = viewIndices;
+                _series = series ?? throw new ArgumentNullException(nameof(series));
+                _indices = indices ?? throw new ArgumentNullException(nameof(indices));
+                _viewIndices = viewIndices ?? throw new ArgumentNullException(nameof(viewIndices));
                 _viewIndexSet = new HashSet<object?>(_viewIndices);
             }
 
-            // Constructor using (start, end, step)
+            /// <summary>
+            /// Initializes a view from a range specification.
+            /// </summary>
+            /// <param name="series">The source series.</param>
+            /// <param name="slices">A tuple containing start index, end index, and step.</param>
+            /// <exception cref="ArgumentException">Thrown if start or end index does not exist, or step is zero.</exception>
             public SeriesView(Series series, (object start, object end, int step) slices)
             {
-                if (!series.index.Contains(slices.start) || !series.index.Contains(slices.end))
+                this._series = series ?? throw new ArgumentNullException( nameof(series));
+                var tmp = BuildIndicesFromRange(series, slices.start, slices.end, slices.step);
+                _viewIndices = tmp.viewIndices;
+                _indices = tmp.indices;
+                _viewIndexSet = new HashSet<object?>(_viewIndices);
+            }
+
+            /// <summary>
+            /// Initializes a view from a list of index values.
+            /// </summary>
+            /// <param name="series">The source series.</param>
+            /// <param name="slice">List of index values to include in the view.</param>
+            /// <exception cref="ArgumentException">Thrown if any index in slice does not exist in the series.</exception>
+            public SeriesView(Series series, List<object> slice)
+            {
+                _series = series;
+                var tmp = BuildIndicesFromList(series,slice);
+                _viewIndices = tmp.viewIndices;
+                _indices = tmp.indices;
+                _viewIndexSet = new HashSet<object?>(_viewIndices);
+            }
+
+            #endregion
+
+            #region Private Static Builders
+
+            private static (List<int> indices, List<object> viewIndices) BuildIndicesFromRange(Series series, object start, object end, int step)
+            {
+                if (!series.index.Contains(start) || !series.index.Contains(end))
                     throw new ArgumentException("Start or end index does not exist in the series index.");
-                if (slices.step == 0)
+                if (step == 0)
                     throw new ArgumentException("Step cannot be zero.");
 
-                _series = series;
-                _indices = new List<int>();
-                _viewIndices = new List<object>();
+                var indices = new List<int>();
+                var viewIndices = new List<object>();
 
-                int startIdx = series.index.FirstPositionOf(slices.start);
-                int endIdx = series.index.FirstPositionOf(slices.end);
+                int startIdx = series.index.FirstPositionOf(start);
+                int endIdx = series.index.FirstPositionOf(end);
 
-                if (slices.step > 0)
+                if (step > 0)
                 {
-                    for (int i = startIdx; i <= endIdx; i += slices.step)
+                    for (int i = startIdx; i <= endIdx; i += step)
                     {
-                        _indices.Add(i);
-                        _viewIndices.Add(series.index.GetIndex(i));
+                        indices.Add(i);
+                        viewIndices.Add(series.index.GetIndex(i));
                     }
                 }
                 else
                 {
-                    for (int i = startIdx; i >= endIdx; i += slices.step)
+                    for (int i = startIdx; i >= endIdx; i += step)
                     {
-                        _indices.Add(i);
-                        _viewIndices.Add(series.index.GetIndex(i));
+                        indices.Add(i);
+                        viewIndices.Add(series.index.GetIndex(i));
                     }
                 }
 
-                _viewIndexSet = new HashSet<object?>(_viewIndices);
+                return (indices, viewIndices);
             }
 
-            // Constructor using a list of index values
-            public SeriesView(Series series, List<object> slice)
+            private static (List<int> indices, List<object> viewIndices) BuildIndicesFromList(Series series, List<object> slice)
             {
-                _series = series;
-                _indices = new List<int>();
-                _viewIndices = new List<object>();
+                var indices = new List<int>();
+                var viewIndices = new List<object>();
 
                 foreach (var item in slice)
                 {
@@ -93,21 +122,26 @@ namespace DataProcessor.source.NonGenericsSeries
 
                     foreach (var pos in series.index.GetIndexPosition(item))
                     {
-                        _indices.Add(pos);
-                        _viewIndices.Add(series.index.GetIndex(pos));
+                        indices.Add(pos);
+                        viewIndices.Add(series.index.GetIndex(pos));
                     }
                 }
 
-                _viewIndexSet = new HashSet<object?>(_viewIndices);
+                return (indices, viewIndices);
             }
 
-            // Factory for creating a sliced view from another view
+            #endregion
+
+            #region Public Methods
+
+            /// <summary>
+            /// Creates a new view from the current view, including only the specified index values.
+            /// </summary>
             public SeriesView SliceView(List<object> slice)
             {
+                var requested = new HashSet<object>(slice);
                 var newIndices = new List<int>();
                 var newViewIndices = new List<object>();
-
-                var requested = new HashSet<object>(slice);
 
                 for (int i = 0; i < _indices.Count; i++)
                 {
@@ -123,32 +157,22 @@ namespace DataProcessor.source.NonGenericsSeries
             }
 
             /// <summary>
-            /// Creates a new <see cref="SeriesView"/> by slicing the current view based on the specified range and
-            /// step.
+            /// Creates a new view by slicing with start/end positions and step.
             /// </summary>
-            /// <remarks>The slicing operation supports both positive and negative step values. A
-            /// positive step slices elements from <paramref name="slices.start"/> to <paramref name="slices.end"/> in
-            /// ascending order, while a negative step slices elements in descending order.</remarks>
-            /// <param name="slices">A tuple containing the start index, end index, and step size for slicing. <paramref
-            /// name="slices.start"/> and <paramref name="slices.end"/> must exist in the current view index. <paramref
-            /// name="slices.step"/> specifies the interval between elements in the slice and cannot be zero.</param>
-            /// <returns>A new <see cref="SeriesView"/> containing the elements from the current view that match the specified
-            /// slicing criteria.</returns>
-            /// <exception cref="ArgumentException">Thrown if <paramref name="slices.start"/> or <paramref name="slices.end"/> does not exist in the view
-            /// index, or if <paramref name="slices.step"/> is zero.</exception>
             public SeriesView SliceView((int start, int end, int step) slices)
             {
-                if (!this._viewIndexSet.Contains(slices.start) || !this._viewIndexSet.Contains(slices.end))
-                    throw new ArgumentException("Start or end index does not exist in the view index.");
                 if (slices.step == 0)
                     throw new ArgumentException("Step cannot be zero.");
-                List<int> newIndices = new List<int>();
-                List<object> newViewIndices = new List<object>();
-                int startIdx = _viewIndices.IndexOf(slices.start);
-                int endIdx = _viewIndices.IndexOf(slices.end);
+                if (slices.start < 0 || slices.start >= _viewIndices.Count ||
+                    slices.end < 0 || slices.end >= _viewIndices.Count)
+                    throw new ArgumentOutOfRangeException("Start or end position is out of range.");
+
+                var newIndices = new List<int>();
+                var newViewIndices = new List<object>();
+
                 if (slices.step > 0)
                 {
-                    for (int i = startIdx; i <= endIdx; i += slices.step)
+                    for (int i = slices.start; i <= slices.end; i += slices.step)
                     {
                         newIndices.Add(_indices[i]);
                         newViewIndices.Add(_viewIndices[i]);
@@ -156,36 +180,32 @@ namespace DataProcessor.source.NonGenericsSeries
                 }
                 else
                 {
-                    for (int i = startIdx; i >= endIdx; i += slices.step)
+                    for (int i = slices.start; i >= slices.end; i += slices.step)
                     {
                         newIndices.Add(_indices[i]);
                         newViewIndices.Add(_viewIndices[i]);
                     }
                 }
+
                 return new SeriesView(_series, newIndices, newViewIndices);
             }
 
             /// <summary>
-            /// Creates a new <see cref="Series"/> instance containing the values from the current view.
+            /// Converts the current view to a new <see cref="Series"/> instance.
             /// </summary>
-            /// <remarks>The resulting <see cref="Series"/> is constructed using the indices and
-            /// values from the current view, ensuring that the data type and other metadata are preserved. The
-            /// operation creates a copy of the data to ensure immutability.</remarks>
-            /// <param name="name">An optional name for the resulting <see cref="Series"/>. If <paramref name="name"/> is <see
-            /// langword="null"/>, the name of the original series is used.</param>
-            /// <returns>A new <see cref="Series"/> containing the values from the current view, with the specified name and
-            /// other properties copied from the original series.</returns>
             public Series ToSeries(string? name = null)
             {
-                List<object?> values = new List<object?>(_indices.Count);
-                foreach (var pos in _indices)
-                {
-                    values.Add(_series.valueStorage.GetValue(pos));
-                }
+                var values = _indices.Select(pos => _series.valueStorage.GetValue(pos)).ToList();
                 return new Series(values, index: _viewIndices, dtype: _series.dataType, name: name ?? _series.seriesName, copy: true);
             }
 
-            // Indexer: return all values mapped to index, filtered by current view
+            #endregion
+
+            #region Indexers & Enumerators
+
+            /// <summary>
+            /// Gets all values associated with a given index in the current view.
+            /// </summary>
             public IEnumerable<object?> this[object index]
             {
                 get
@@ -200,6 +220,7 @@ namespace DataProcessor.source.NonGenericsSeries
                     }
                 }
             }
+
             public IEnumerator<object?> GetEnumerator()
             {
                 foreach (var pos in _indices)
@@ -207,47 +228,40 @@ namespace DataProcessor.source.NonGenericsSeries
             }
 
             IEnumerator<object?> IEnumerable<object?>.GetEnumerator() => GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
-            }
+            #endregion
+
+            #region Overrides & Properties
 
             /// <summary>
-            /// Returns a string representation of the series view, including the series name, indices, and values.
+            /// Returns a formatted string representation of the current view.
             /// </summary>
-            /// <remarks>The returned string includes a formatted table with the index and
-            /// corresponding value for each element in the series view. If the series name is not set, "Unnamed" is
-            /// used as the default name. Values that are null are represented as "null" in the output.</remarks>
-            /// <returns>A string that represents the series view, including the series name, indices, and values.</returns>
             public override string ToString()
             {
                 var sb = new StringBuilder();
                 sb.AppendLine($"Series View: {_series.seriesName ?? "Unnamed"}");
                 sb.AppendLine("Index | Value");
                 sb.AppendLine("--------------");
+
                 for (int i = 0; i < _indices.Count; i++)
-                {
                     sb.AppendLine($"{_viewIndices[i],5} | {_series.valueStorage.GetValue(_indices[i])?.ToString() ?? "null"}");
-                }
+
                 return sb.ToString();
             }
 
-            // Count of elements in the view
+            /// <summary>Gets the number of elements in the view.</summary>
             public int Count => _indices.Count;
 
-            // Optional: expose view indices and positions for external inspection if needed
-
-            /// <summary>
-            /// Gets a read-only collection of indices. It presents the positions of the elements in the original series as integers.
-            /// </summary>
+            /// <summary>Gets a read-only list of positions in the original series.</summary>
             public IReadOnlyList<int> Indices => _indices;
 
-            /// <summary>
-            /// Gets a read-only collection of view indices. It presents the indices of the elements in the view original index of series as objects.
-            /// </summary>
+            /// <summary>Gets a read-only list of index values in the view.</summary>
             public IReadOnlyList<object> ViewIndices => _viewIndices;
+
+            #endregion
         }
+
 
         /// <summary>
         /// Represents a view of grouped data, providing functionality to retrieve, summarize, and count values based on
@@ -359,82 +373,23 @@ namespace DataProcessor.source.NonGenericsSeries
 
 
         // this part is iteator, which allows the series to be enumerated
-        public IEnumerator<object?> GetEnumerator()
-        {
-            return new SeriesEnumerator(this);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
 
         /// <summary>
-        /// Enumerates the elements of a <see cref="Series"/> collection.
+        /// Returns an enumerator that iterates through the collection of values.
         /// </summary>
-        /// <remarks>This enumerator provides sequential access to the elements in a <see cref="Series"/>.
-        /// Use <see cref="MoveNext"/> to advance the enumerator to the next element and <see cref="Current"/>  to
-        /// retrieve the current element. The enumerator starts before the first element and must be  advanced before
-        /// accessing elements. Once the end of the collection is reached, <see cref="MoveNext"/>  will return <see
-        /// langword="false"/>.</remarks>
-        private sealed class SeriesEnumerator : IEnumerator<object?>
+        /// <returns>An enumerator for the collection of values stored in this instance.</returns>
+        public IEnumerator<object?> GetEnumerator()
         {
-            /// <summary>
-            /// Represents the series enumerator, which allows iteration over the values in a Series.
-            /// </summary>
-            private readonly Series _series;
-            private int _currentIndex = -1;
-            public SeriesEnumerator(Series series)
+            return this.valueStorage.GetEnumerator();
+        }
+
+        public IEnumerable<T?> AsTyped<T>()
+        {
+            if (typeof(T).IsAssignableFrom(dataType))
             {
-                _series = series;
+                return valueStorage.AsTyped<T>();
             }
-
-            /// <summary>
-            /// Gets the current element in the collection.
-            /// </summary>
-            /// <remarks>The value of <see cref="Current"/> is undefined until the enumerator is
-            /// positioned on an element within the collection. Ensure the enumerator is properly initialized and
-            /// positioned before accessing this property.</remarks>
-            public object? Current => _series.valueStorage.GetValue(_currentIndex);
-
-            /// <summary>
-            /// Gets the current element in the collection being enumerated.
-            /// </summary>
-            object System.Collections.IEnumerator.Current => Current!;
-
-            /// <summary>
-            /// Advances the enumerator to the next element in the series.
-            /// </summary>
-            /// <remarks>This method increments the internal index and checks whether the index is
-            /// within the bounds of the series. It should be called repeatedly to iterate through all elements in the
-            /// series.</remarks>
-            /// <returns><see langword="true"/> if the enumerator successfully advanced to the next element;  otherwise, <see
-            /// langword="false"/> if the end of the series has been reached.</returns>
-            public bool MoveNext()
-            {
-                _currentIndex++;
-                return _currentIndex < _series.Count;
-            }
-
-            /// <summary>
-            /// Resets the internal state of the enumerator to its initial position, before the first element.
-            /// </summary>
-            /// <remarks>After calling this method, the enumerator must be advanced using <see
-            /// cref="MoveNext">  before accessing elements.</remarks>
-            public void Reset()
-            {
-                _currentIndex = -1;
-            }
-
-            /// <summary>
-            /// Releases all resources used by the current instance of the class.
-            /// </summary>
-            /// <remarks>Call this method when you are finished using the object to free up resources.
-            /// After calling <see cref="Dispose"/>, the object is in an unusable state and should not be
-            /// accessed.</remarks>
-            public void Dispose()
-            { // no operation}
-            }
+            return valueStorage.AsTyped<T>();
         }
     }
 }
