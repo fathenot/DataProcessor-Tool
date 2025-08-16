@@ -126,10 +126,17 @@ namespace DataProcessor.source.NonGenericsSeries
         /// Returns an empty list if the item is not found.</returns>
         public List<int> Find(object? item)
         {
+            if (item == null)
+            {
+                return valueStorage.NullIndices.ToList();
+            }
+
             List<int> indices = new List<int>();
+            object? ConvertedTypeItem = ChangeType(item, DataType);
             for (int i = 0; i < this.Count; i++)
             {
-                if (object.Equals(this.valueStorage.GetValue(i), item))
+                var temp = valueStorage.GetValue(i);
+                if (object.Equals(ConvertedTypeItem, temp))
                 {
                     indices.Add(i);
                 }
@@ -147,7 +154,7 @@ namespace DataProcessor.source.NonGenericsSeries
 
         public bool Contains(object? item)
         {
-            return this.valueStorage.Contains(item);
+            return this.Find(item).Count != 0;
         }
 
         /// <summary>
@@ -157,7 +164,7 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <returns>The value at the specified index, or <see langword="null"/> if the index is valid but the value is not set.</returns>
         public object? GetValueIntloc(int index)
         {
-            return this.valueStorage[index];
+            return valueStorage.GetValue(index);
         }
     }
 }
