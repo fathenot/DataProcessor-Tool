@@ -183,7 +183,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 case IntValuesStorage intStorage:
                     {
                         // Xử lý khi storage là kiểu int
-                        var nonNullVals = intStorage.Values;
+                        var nonNullVals = intStorage.NonNullValues;
                         var ListedIndex = this.index.ToList();
                         EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
                         var ListedValues = new List<object?>();
@@ -216,7 +216,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 case DoubleValueStorage doubleStorage:
                     {
                         // Xử lý khi storage là kiểu double
-                        var nonNullVals = doubleStorage.Values;
+                        var nonNullVals = doubleStorage.NonNullValues;
                         var ListedIndex = this.index.ToList();
                         EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
                         var ListedValues = new List<object?>();
@@ -242,7 +242,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 case DateTimeStorage dateStorage:
                     {
                         // Xử lý DateTime
-                        var nonNullVals = dateStorage.Values;
+                        var nonNullVals = dateStorage.NonNullValues;
                         var ListedIndex = this.index.ToList();
                         EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
                         var ListedValues = new List<object?>();
@@ -268,7 +268,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 case StringStorage stringStorage:
                     {
                         // Xử lý khi storage là kiểu string
-                        var nonNullVals = stringStorage.Values;
+                        var nonNullVals = stringStorage.NonNullValues;
                         var ListedIndex = this.index.ToList();
                         EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
                         var ListedValues = new List<object?>();
@@ -293,7 +293,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 case DecimalStorage decimalStorage:
                     {
                         // Xử lý khi storage là kiểu decimal
-                        var nonNullVals = decimalStorage.Values;
+                        var nonNullVals = decimalStorage.NonNullValues;
                         var ListedIndex = this.index.ToList();
                         EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
                         var ListedValues = new List<object?>();
@@ -318,7 +318,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 case CharStorage charStorage:
                     {
                         // Xử lý khi storage là kiểu char
-                        var nonNullVals = charStorage.Values;
+                        var nonNullVals = charStorage.NonNullValues;
                         var ListedIndex = this.index.ToList();
                         EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
                         var ListedValues = new List<object?>();
@@ -439,27 +439,27 @@ namespace DataProcessor.source.NonGenericsSeries
                 case IntValuesStorage intStorage:
                     {
                         // Xử lý khi storage là kiểu int
-                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(intStorage.Values);
+                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(intStorage.NonNullValues);
                     }
                 case DoubleValueStorage doubleStorage:
                     {
                         // Xử lý khi storage là kiểu double
-                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(doubleStorage.Values);
+                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(doubleStorage.NonNullValues);
                     }
                 case StringStorage stringStorage:
                     {
                         // Xử lý khi storage là kiểu string
-                        return string.Join("", stringStorage.Values);
+                        return string.Join("", stringStorage.NonNullValues);
                     }
                 case DecimalStorage decimalStorage:
                     {
                         // Xử lý khi storage là kiểu decimal
-                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(decimalStorage.Values).ToString();
+                        return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(decimalStorage.NonNullValues).ToString();
                     }
                 case CharStorage charStorage:
                     {
                         // Xử lý khi storage là kiểu char
-                        return string.Join("", charStorage.Values);
+                        return string.Join("", charStorage.NonNullValues);
                     }
                 default:
                     {
