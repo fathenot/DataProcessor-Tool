@@ -180,7 +180,40 @@ namespace DataProcessor.source.NonGenericsSeries
         {
             switch (this.valueStorage)
             {
-                case IntValuesStorage intStorage:
+                case Int32ValuesStorage int32ValuesStorage:
+                    {
+                        // Xử lý khi storage là kiểu int
+                        var nonNullVals = int32ValuesStorage.NonNullValues;
+                        var ListedIndex = this.index.ToList();
+                        EngineWrapper.SortingEngine.IndexValueSorter.SortByValue(nonNullVals, this.index.ToList(), ascending);
+                        var ListedValues = new List<object?>();
+                        if (!nullsFirst)
+                        {
+                            foreach (var val in nonNullVals)
+                            {
+                                ListedValues.Add(val);
+                            }
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < this.valueStorage.NullIndices.Count(); i++)
+                            {
+                                ListedValues.Add(null);
+
+                            }
+                            foreach (var val in nonNullVals)
+                            {
+                                ListedValues.Add(val);
+                            }
+                        }
+                        return new Series(ListedValues, ListedIndex, this.dataType, this.seriesName);
+                    }
+
+                case Int64ValuesStorage intStorage:
                     {
                         // Xử lý khi storage là kiểu int
                         var nonNullVals = intStorage.NonNullValues;
@@ -436,7 +469,7 @@ namespace DataProcessor.source.NonGenericsSeries
             string result = string.Empty;
             switch (this.valueStorage)
             {
-                case IntValuesStorage intStorage:
+                case Int64ValuesStorage intStorage:
                     {
                         // Xử lý khi storage là kiểu int
                         return EngineWrapper.ComputationEngine.CalculateSum.ComputeSum(intStorage.NonNullValues);

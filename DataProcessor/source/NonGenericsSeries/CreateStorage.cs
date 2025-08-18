@@ -68,15 +68,27 @@ namespace DataProcessor.source.NonGenericsSeries
                 }
                 return new CharStorage(elements.Select(Convert.ToChar).ToArray(), false);
             }
-            else if (Support.IsIntegerType(dataType))
+            else if(dataType == typeof(int))
+            {
+                if ((elements.AsParallel().Any(element => element == null)))
+                {
+                    // If there are nulls, we need to use nullable long
+                    var elementsWithNulls = elements.Select(e => e == null ? (int?)null : Convert.ToInt32(e)).ToArray();
+
+                    return new Int32ValuesStorage(elementsWithNulls);
+                }
+                return new Int32ValuesStorage(elements.Select(Convert.ToInt32).ToArray(), false);
+            }
+            else if (dataType == typeof(long))
             {
                 if ((elements.AsParallel().Any(element => element == null)))
                 {
                     // If there are nulls, we need to use nullable long
                     var elementsWithNulls = elements.Select(e => e == null ? (long?)null : Convert.ToInt64(e)).ToArray();
-                    return new IntValuesStorage(elementsWithNulls);
+
+                    return new Int64ValuesStorage(elementsWithNulls);
                 }
-                return new IntValuesStorage(elements.Select(Convert.ToInt64).ToArray(), false);
+                return new Int64ValuesStorage(elements.Select(Convert.ToInt64).ToArray(), false);
             }
             return new ObjectValueStorage(elements.ToArray(), copy);
 
@@ -259,9 +271,9 @@ namespace DataProcessor.source.NonGenericsSeries
                 {
                     // If there are nulls, we need to use nullable long
                     var elementsWithNulls = elements.Select(e => e == null ? (long?)null : Convert.ToInt64(e)).ToArray();
-                    return new IntValuesStorage(elementsWithNulls);
+                    return new Int64ValuesStorage(elementsWithNulls);
                 }
-                return new IntValuesStorage(elements.Select(Convert.ToInt64).ToArray(), false);
+                return new Int64ValuesStorage(elements.Select(Convert.ToInt64).ToArray(), false);
             }
             return new ObjectValueStorage(elements.ToArray(), copy);
 

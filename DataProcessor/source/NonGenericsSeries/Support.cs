@@ -78,16 +78,19 @@ namespace DataProcessor.source.NonGenericsSeries
         {
             bool hasDecimal = false;
             bool hasDouble = false;
-            bool hasInt = false;
-
+            bool hasInt32 = false;
+            bool hasInt64 = false;
             foreach (var v in values)
             {
                 if (v == null || v == DBNull.Value) continue;
 
                 switch (v)
                 {
-                    case int or long or short or byte:
-                        hasInt = true;
+                    case int or short or byte:
+                        hasInt32= true;
+                        break;
+                    case long:
+                        hasInt64= true;
                         break;
                     case float or double:
                         hasDouble = true;
@@ -99,6 +102,8 @@ namespace DataProcessor.source.NonGenericsSeries
                         return typeof(object); // Không phải số → object
                 }
             }
+            
+            // handle the case when values contains value exceed the max value of type decimal (it wiill cast to double -> sacrifice the precision)
             if (hasDecimal && values.Where(v => v is IConvertible && v != null && v != DBNull.Value)
                         .Any(v =>
                         {
@@ -116,7 +121,8 @@ namespace DataProcessor.source.NonGenericsSeries
             }
             return hasDecimal ? typeof(decimal)
                  : hasDouble ? typeof(double)
-                 : hasInt ? typeof(long)
+                 : hasInt64 ? typeof(long)
+                 : hasInt32? typeof(int)
                  : typeof(object); // Trường hợp danh sách rỗng hoặc chỉ chứa null
         }
 
