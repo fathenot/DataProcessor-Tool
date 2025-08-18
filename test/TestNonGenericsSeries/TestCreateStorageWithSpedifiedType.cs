@@ -12,7 +12,7 @@ namespace test.TestNonGenericsSeries
        
         public static IEnumerable<object[]> TypeInferenceData => new List<object[]>
         {
-            new object[] { new object[] { 1, 2, 3 }, typeof(long), typeof(IntValuesStorage) },
+            new object[] { new object[] { 1, 2, 3 }, typeof(long), typeof(Int64ValuesStorage) },
             new object[] { new object[] { 1.0f, 2.0f }, typeof(double), typeof(DoubleValueStorage) },
             new object[] { new object[] { new DateTime(2020, 1, 1) }, typeof(DateTime), typeof(DateTimeStorage) },
             new object[] { new object[] { Guid.NewGuid() }, typeof(Guid), typeof(ObjectValueStorage) },

@@ -12,7 +12,7 @@ namespace test.TestStorage
         [Fact]
         public void TestNullHandlingInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { null, 3, null });
+            var intStorage = new Int64ValuesStorage(new long?[] { null, 3, null });
             Assert.Equal(3, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 0, 2 }));
             Assert.Null(intStorage.GetValue(0));
@@ -22,7 +22,7 @@ namespace test.TestStorage
         [Fact]
         public void TestEmptyIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { });
+            var intStorage = new Int64ValuesStorage(new long?[] { });
             Assert.Equal(0, intStorage.Count);
             Assert.Empty(intStorage.NullIndices);
         }
@@ -30,7 +30,7 @@ namespace test.TestStorage
         [Fact]
         public void TestSingleNullValueInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { null });
+            var intStorage = new Int64ValuesStorage(new long?[] { null });
             Assert.Equal(1, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 0 }));
             Assert.Null(intStorage.GetValue(0));
@@ -39,7 +39,7 @@ namespace test.TestStorage
         [Fact]
         public void TestSingleValueInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { 5 });
+            var intStorage = new Int64ValuesStorage(new long?[] { 5 });
             Assert.Equal(1, intStorage.Count);
             Assert.Empty(intStorage.NullIndices);
             Assert.Equal(5, (long)intStorage.GetValue(0));
@@ -48,7 +48,7 @@ namespace test.TestStorage
         [Fact]
         public void TestMixedValuesInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { 1, null, 3, null, 5 });
+            var intStorage = new Int64ValuesStorage(new long?[] { 1, null, 3, null, 5 });
             Assert.Equal(5, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 1, 3 }));
             Assert.Equal(1, (long)intStorage.GetValue(0));
@@ -60,7 +60,7 @@ namespace test.TestStorage
         [Fact]
         public void TestNegativeValuesInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { -1, -2, null, -4 });
+            var intStorage = new Int64ValuesStorage(new long?[] { -1, -2, null, -4 });
             Assert.Equal(4, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 2 }));
             Assert.Equal(-1, (long)intStorage.GetValue(0));
@@ -72,7 +72,7 @@ namespace test.TestStorage
         [Fact]
         public void TestLargeValuesInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { 1000000000, 2000000000, null, 4000000000 });
+            var intStorage = new Int64ValuesStorage(new long?[] { 1000000000, 2000000000, null, 4000000000 });
             Assert.Equal(4, intStorage.Count);
             Assert.True(intStorage.NullIndices.SequenceEqual(new[] { 2 }));
             Assert.Equal(1000000000, (long)intStorage.GetValue(0));
@@ -83,7 +83,7 @@ namespace test.TestStorage
         [Fact]
         public void TestSetValueInIntStorage()
         {
-            var intStorage = new IntValuesStorage(new long?[] { null, null });
+            var intStorage = new Int64ValuesStorage(new long?[] { null, null });
             intStorage.SetValue(0, 10);
             intStorage.SetValue(1, 20);
             Assert.Equal(10, (long)intStorage.GetValue(0));
@@ -108,7 +108,7 @@ namespace test.TestStorage
             {
                 millionElements[i] = i % 2 == 0 ? (long?)i : null; // Half null, half int
             }
-            var intStorage = new IntValuesStorage(millionElements);
+            var intStorage = new Int64ValuesStorage(millionElements);
             Assert.Equal(1000000, intStorage.Count);
             Assert.Equal(500000,intStorage.NullIndices.Count()); // Half should be null
             Assert.Equal(0, (long)intStorage.GetValue(0));
@@ -133,7 +133,7 @@ namespace test.TestStorage
                 millionElements[i] = (i % 3 == 0) ? null : (long?)(i % 2 == 0 ? -i : i);
             }
 
-            var intStorage = new IntValuesStorage(millionElements);
+            var intStorage = new Int64ValuesStorage(millionElements);
             Assert.Equal(10_000_000, intStorage.Count);
 
             // Bắt đầu đo thời gian lọc

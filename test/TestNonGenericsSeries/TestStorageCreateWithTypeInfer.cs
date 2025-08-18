@@ -18,14 +18,14 @@ namespace test.TestNonGenericsSeries
                 list.Add(i); // int
             }
 
-            Assert.Equal(typeof(long), Support.InferDataType(list));
+            Assert.Equal(typeof(int), Support.InferDataType(list));
             AbstractValueStorage storage = Series.CreateValueStorage(list);
-            Assert.True(storage is IntValuesStorage); // your internal naming
+            Assert.True(storage is Int32ValuesStorage); // your internal naming
         }
 
         public static IEnumerable<object[]> TypeInferenceData => new List<object[]>
         {
-            new object[] { new object[] { 1, 2, 3 }, typeof(long), typeof(IntValuesStorage) },
+            new object[] { new object[] { 1, 2, 3 }, typeof(int), typeof(Int32ValuesStorage) },
             new object[] { new object[] { 1.0f, 2.0f }, typeof(double), typeof(DoubleValueStorage) },
             new object[] { new object[] { new DateTime(2020, 1, 1) }, typeof(DateTime), typeof(DateTimeStorage) },
             new object[] { new object[] { Guid.NewGuid() }, typeof(Guid), typeof(ObjectValueStorage) },

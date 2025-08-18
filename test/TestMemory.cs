@@ -18,7 +18,7 @@ namespace test
             {
                 var data = Enumerable.Range(0, 100_000).Select(x => (long?)x).ToArray();
 
-                using var storage = new IntValuesStorage(data); // <= quan trọng
+                using var storage = new Int64ValuesStorage(data); // <= quan trọng
 
                 // Nếu bạn không dùng `using`, thì cần gọi `.Dispose()` bằng tay
             }

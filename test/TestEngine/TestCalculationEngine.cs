@@ -6,7 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+
 namespace test.TestEngine
 {
    public class TestCalculationEngine
@@ -19,7 +19,7 @@ namespace test.TestEngine
         [Fact]
         public void TestCalculationEngine1()
         {
-            var storage = new DataProcessor.source.ValueStorage.IntValuesStorage(new long?[] { 1, 2, 8, 4, 10 });
+            var storage = new DataProcessor.source.ValueStorage.Int64ValuesStorage(new long?[] { 1, 2, 8, 4, 10 });
             Assert.Equal(25, CalculateSum.ComputeSum(storage.Cast<long>().ToArray()));
 
         }
@@ -27,7 +27,7 @@ namespace test.TestEngine
         [Fact]
         public void TestCalculationWithNulls()
         {
-            var storage = new DataProcessor.source.ValueStorage.IntValuesStorage(new long?[] { 1, null, 3, null, 5 });
+            var storage = new DataProcessor.source.ValueStorage.Int64ValuesStorage(new long?[] { 1, null, 3, null, 5 });
             unsafe
             {
                 long* ptr = (long*)storage.GetNativeBufferPointer();

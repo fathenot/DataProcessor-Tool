@@ -24,9 +24,9 @@ namespace test.TestNonGenericsSeries
             var head = series.Head(3);
 
             Assert.Equal(3, head.Count);
-            Assert.NotStrictEqual(0, head.GetValueIntloc(0));
-            Assert.NotStrictEqual(1, head.GetValueIntloc(1));
-            Assert.NotStrictEqual(2, head.GetValueIntloc(2));
+            Assert.Equal(0, head.GetValueIntloc(0));
+            Assert.Equal(1, head.GetValueIntloc(1));
+            Assert.Equal(2, head.GetValueIntloc(2));
         }
 
         [Fact]
@@ -36,9 +36,9 @@ namespace test.TestNonGenericsSeries
             var tail = series.Tail(3);
 
             Assert.Equal(3, tail.Count);
-            Assert.NotStrictEqual(7, tail.GetValueIntloc(0));
-            Assert.NotStrictEqual(8, tail.GetValueIntloc(1));
-            Assert.NotStrictEqual(9, tail.GetValueIntloc(2));
+            Assert.Equal(7, tail.GetValueIntloc(0));
+            Assert.Equal(8, tail.GetValueIntloc(1));
+            Assert.Equal(9, tail.GetValueIntloc(2));
         }
 
         [Fact]
@@ -49,20 +49,19 @@ namespace test.TestNonGenericsSeries
 
             Assert.Equal(3, view.Count);
             var values = new List<object?>(view);
-            Assert.NotStrictEqual(new object?[] { 1, 3, 5 }, values.ToArray());
+            Assert.Equal(new object?[] { 1, 3, 5 }, values.ToArray());
         }
 
         [Fact]
         public void Filter_ReturnsCorrectElements()
         {
             var series = CreateSeries();
-            var filtered = series.Filter(v => ((long)v! % 2) == 0);
+            var filtered = series.Filter(v => ((int)v! % 2) == 0);
 
             Assert.Equal(5, filtered.Count);
             foreach (var v in filtered)
             {
-                var temp = Convert.ChangeType(v, typeof(long));
-                Assert.True((long)temp % 2 == 0);
+                Assert.True((int)v % 2 == 0);
             }
         }
 
@@ -95,7 +94,7 @@ namespace test.TestNonGenericsSeries
 
             for (int i = 0; i < series.Count; i++)
             {
-                Assert.NotStrictEqual(i, series.GetValueIntloc(i));
+                Assert.Equal(i, series.GetValueIntloc(i));
             }
         }
 

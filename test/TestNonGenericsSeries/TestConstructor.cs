@@ -146,7 +146,7 @@ namespace test.TestNonGenericsSeries
                 var positions = mapping[index[i]];
                 foreach (var pos in positions)
                 {
-                    Assert.Contains(data[pos], result.Cast<long>().ToList());
+                    Assert.Contains(data[pos], result.ToList());
                 }
             }
         }

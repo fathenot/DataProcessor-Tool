@@ -50,6 +50,14 @@ namespace test.TestNonGenericsSeries
         }
 
         [Fact]
+        public void InferNumericType_ReturnsInt32_WhenOnlyIntegers()
+        {
+            var values = new List<object?> { 1, 2, 3, 4 };
+            var result = Support.InferNumericType(values);
+            Assert.Equal(typeof(int), result);
+        }
+
+        [Fact]
         public void InferNumericType_ReturnsDouble_WhenFloatsPresent()
         {
             var values = new List<object?> { 1, 2.5f, 3 };
