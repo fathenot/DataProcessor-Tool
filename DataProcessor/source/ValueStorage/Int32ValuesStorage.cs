@@ -3,12 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace DataProcessor.source.ValueStorage
 {
-    /// <summary>
-    /// Provides storage for nullable 64-bit integer values, with support for null tracking and native buffer access.
-    /// </summary>
-    internal class IntValuesStorage : AbstractValueStorage, IEnumerable<object?>, IDisposable
+    internal class Int32ValuesStorage: AbstractValueStorage, IEnumerable<object?>
     {
-        private readonly long[] _intValues;
+        private readonly int[] _intValues;
         private readonly NullBitMap _nullBitMap;
         private readonly GCHandle _handle;
         private bool disposed = false;
@@ -25,7 +22,7 @@ namespace DataProcessor.source.ValueStorage
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IntValuesStorage"/> class, storing a collection of nullable
+        /// Initializes a new instance of the <see cref="Int64ValuesStorage"/> class, storing a collection of nullable
         /// integers and tracking their nullability using a bitmap.
         /// </summary>
         /// <remarks>This constructor initializes the internal storage for integer values and a bitmap to
@@ -33,9 +30,9 @@ namespace DataProcessor.source.ValueStorage
         /// internal array, and null values are recorded in the bitmap. The internal array is pinned in memory to ensure
         /// it remains accessible for unmanaged operations.</remarks>
         /// <param name="values">An array of nullable integers to be stored. Each element represents a value or a null entry.</param>
-        internal IntValuesStorage(long?[] values)
+        internal Int32ValuesStorage(int?[] values)
         {
-            _intValues = new long[values.Length];
+            _intValues = new int[values.Length];
             _nullBitMap = new NullBitMap(values.Length);
 
             for (int i = 0; i < values.Length; i++)
@@ -51,20 +48,20 @@ namespace DataProcessor.source.ValueStorage
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IntValuesStorage"/> class with the specified values.
+        /// Initializes a new instance of the <see cref="Int64ValuesStorage"/> class with the specified values.
         /// </summary>
         /// <remarks>If <paramref name="copy"/> is <see langword="false"/>, the caller must ensure that
         /// the <paramref name="values"/> array is not modified externally after being passed to this constructor, as
         /// the instance will directly reference it. The constructor also initializes a bitmap to track nullability,
         /// marking all values as non-null.</remarks>
-        /// <param name="values">An array of <see langword="long"/> values to be stored. This array must not be <see langword="null"/>.</param>
+        /// <param name="values">An array of <see langword="int"/> values to be stored. This array must not be <see langword="null"/>.</param>
         /// <param name="copy">A <see langword="bool"/> indicating whether to create a copy of the <paramref name="values"/> array. If <see
         /// langword="true"/>, the values are copied into a new array; otherwise, the provided array is used directly.</param>
-        internal IntValuesStorage(long[] values, bool copy = false)
+        internal Int32ValuesStorage(int[] values, bool copy = false)
         {
             if (copy)
             {
-                _intValues = new long[values.Length];
+                _intValues = new int[values.Length];
                 Array.Copy(values, _intValues, values.Length);
             }
             else
@@ -78,20 +75,15 @@ namespace DataProcessor.source.ValueStorage
             }
             _handle = GCHandle.Alloc(_intValues, GCHandleType.Pinned);
         }
-        internal override object? GetValue(int index)
-        {
-            ValidateIndex(index);
-            return _nullBitMap.IsNull(index) ? null : _intValues[index];
-        }
 
         /// <summary>
-        /// Gets an array containing all non-null long values in the collection.
+        /// Gets an array containing all non-null int values in the collection.
         /// </summary>
-        internal long[] NonNullValues
+        internal int[] NonNullValues
         {
             get
             {
-                long[] result = new long[_intValues.Length - NullIndices.Count()];
+                int[] result = new int[_intValues.Length - NullIndices.Count()];
                 int current_idx = 0;
                 for (int i = 0; i < _intValues.Length; i++)
                 {
@@ -106,7 +98,8 @@ namespace DataProcessor.source.ValueStorage
         }
         internal override int Count => _intValues.Length;
 
-        internal override Type ElementType => typeof(long);
+        internal override StorageKind storageKind => StorageKind.Int32;
+        internal override Type ElementType => typeof(int);
 
         internal int CountNullValues => _nullBitMap.CountNulls();
 
@@ -122,6 +115,11 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        internal override object? GetValue(int index)
+        {
+            ValidateIndex(index);
+            return _nullBitMap.IsNull(index) ? null : _intValues[index];
+        }
         internal override void SetValue(int index, object? value)
         {
 
@@ -136,13 +134,13 @@ namespace DataProcessor.source.ValueStorage
             {
                 try
                 {
-                    _intValues[index] = Convert.ToInt64(convertible);
+                    _intValues[index] = Convert.ToInt32(convertible);
                     _nullBitMap.SetNull(index, false);
                     return;
                 }
                 catch (Exception e)
                 {
-                    throw new ArgumentException($"Cannot convert value to long: {e.Message}", e);
+                    throw new ArgumentException($"Cannot convert value to int: {e.Message}", e);
                 }
             }
 
@@ -178,23 +176,23 @@ namespace DataProcessor.source.ValueStorage
                 disposed = true;
             }
         }
-        ~IntValuesStorage()
+        ~Int32ValuesStorage()
         {
             Dispose();
         }
 
         /// <summary>
-        /// Enumerates the elements of an <see cref="IntValuesStorage"/> collection.
+        /// Enumerates the elements of an <see cref="Int64ValuesStorage"/> collection.
         /// </summary>
         /// <remarks>This enumerator allows iteration over the values stored in an <see
-        /// cref="IntValuesStorage"/> instance. It maintains the current position within the collection and provides
+        /// cref="Int64ValuesStorage"/> instance. It maintains the current position within the collection and provides
         /// access to the current element.</remarks>
         private sealed class Enumerator : IEnumerator<object?>
         {
-            private IntValuesStorage storage;
+            private Int32ValuesStorage storage;
             private int currentIndex = -1;
 
-            public Enumerator(IntValuesStorage storage)
+            public Enumerator(Int32ValuesStorage storage)
             {
                 this.storage = storage;
                 currentIndex = -1;
