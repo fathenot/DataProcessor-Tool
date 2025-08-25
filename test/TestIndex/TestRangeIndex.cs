@@ -1,4 +1,6 @@
-﻿namespace test.TestIndex
+﻿using DataProcessor.source.Index;
+
+namespace test.TestIndex
 {
     public class TestRangeIndex
     {
@@ -32,7 +34,7 @@
         }
 
         [Fact]
-        public void TestRangeIndexDoesNotContain()
+        public void TestRangeIndexDoesNotContain1()
         {
             // Arrange
             var index = new DataProcessor.source.Index.RangeIndex(1, 5);
@@ -42,6 +44,14 @@
 
             // Assert
             Assert.False(containsValue);
+        }
+
+        [Fact]
+        public void TestRangeIndexDoesNotContain2()
+        {
+            var index = new RangeIndex(1, 6, 2);
+            Assert.False(index.Contains(6));
+            Assert.True(index.Contains(5));
         }
 
         [Fact]
