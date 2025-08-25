@@ -5,7 +5,7 @@
 It is designed to support:
 - Immutable and dynamic Series/Frames with typed storage
 - Efficient columnar access, vectorized operations, and shared memory interop
-- Seamless integration with native backends via C++/gRPC
+- Seamless integration with native backends via C++
 
 > 🚧 **Work in progress** — feedback and contributions are welcome.
 
@@ -18,19 +18,6 @@ It is designed to support:
 - ♻️ *Interoperable*: compatible with engines like Spark, ClickHouse, Kafka, etc.
 - 🧪 *Robust views*: fault-tolerant, reactive view system inspired by Pandas — but safer and more consistent
 
----
-
-## Why this project?
-
-While Pandas is powerful, it has critical limitations:
-- It lacks type safety
-- It performs poorly under memory pressure
-
-Moreover, many existing big data frameworks (especially Java-based systems) are **memory-intensive and poorly suited for resource-constrained environments**, making them inefficient for modest hardware setups.
-
-**DataProcessor** aims to be a modern alternative — built from scratch with performance, extensibility, and low-level control in mind.
-
----
 
 ## Quick Start
 
