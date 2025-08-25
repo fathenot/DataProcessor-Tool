@@ -1,5 +1,6 @@
 ﻿using DataProcessor.source.Index;
 using System.Collections;
+using System.Data.SqlTypes;
 namespace DataProcessor.source.NonGenericsSeries
 {
     public partial class Series
@@ -109,8 +110,19 @@ namespace DataProcessor.source.NonGenericsSeries
             if (index == null) this.index = new RangeIndex(0, values.Count-1);
             else
             {
-                // create the index based on the finalIndex
-                this.index = CreateIndex(index.ToList());
+                if (this.valueStorage.Count == 0 && index.Count() == 0)
+                {
+                    this.index = new ObjectIndex(index.ToList());
+                }
+                else
+                {
+                    // create the index based on the finalIndex
+                    this.index = CreateIndex(index.ToList());
+                    if(this.valueStorage.Count != index.Count())
+                    {
+                        throw new ArgumentException($"Length of index must match length of data.", nameof(index));
+                    }
+                }
             }
             this.seriesName = name;
         }

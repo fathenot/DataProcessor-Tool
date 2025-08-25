@@ -1,5 +1,6 @@
 ﻿using DataProcessor.source.NonGenericsSeries;
 using DataProcessor.source.UserSettings;
+using Xunit;
 namespace test.TestNonGenericsSeries
 {
     public class TestConstructor
@@ -15,10 +16,6 @@ namespace test.TestNonGenericsSeries
         )]
         [InlineData(
             new object[] { null, "abc", 123 },
-            new object[] { "a", "b", "c" }
-        )]
-        [InlineData(
-            new object[] { typeof(string), null },
             new object[] { "a", "b", "c" }
         )]
         [InlineData(
@@ -48,6 +45,12 @@ namespace test.TestNonGenericsSeries
             {
                 Assert.Equal(index[i].ToString(), indexList[i].ToString());
             }
+        }
+        [Fact]
+        public void TestConstructorException()
+        {
+            Assert.Throws<ArgumentException>(() => new Series(new List<object>() { typeof(string), null }, new object[] { 'a', 'b', 'c' }));
+            var tmp = new Series(new List<object>() { typeof(string), null }, new object[] { "a", "b"});
         }
 
         [Fact]
