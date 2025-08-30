@@ -159,5 +159,10 @@ namespace DataProcessor.source.Index
                 indexMap[(DateTime)value].Add(index);
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new DateTimeIndex(dateTimes);
+        }
     }
 }

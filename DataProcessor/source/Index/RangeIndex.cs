@@ -167,5 +167,10 @@ namespace DataProcessor.source.Index
                 }
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new RangeIndex(Start, Stop, Step);
+        }
     }
 }

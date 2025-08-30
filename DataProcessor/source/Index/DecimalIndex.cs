@@ -184,5 +184,10 @@
                 indexMap[(decimal)value].Add(index);
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new DecimalIndex(decimals);
+        }
     }
 }

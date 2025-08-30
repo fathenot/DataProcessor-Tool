@@ -150,5 +150,10 @@
                 indexMap[(double)value].Add(index);
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new DoubleIndex(indexList);
+        }
     }
 }

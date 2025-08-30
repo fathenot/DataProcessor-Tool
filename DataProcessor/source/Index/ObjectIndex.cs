@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DataProcessor.source.Index
+﻿namespace DataProcessor.source.Index
 {
     public class ObjectIndex : IIndex
     {
@@ -32,7 +26,7 @@ namespace DataProcessor.source.Index
         }
         public override int Count => objects.Count;
         public override IReadOnlyList<object> IndexList => objects.AsReadOnly();
-        
+
         public override List<int> GetIndexPosition(object obj)
         {
             if (indexMap.ContainsKey(obj))
@@ -57,7 +51,7 @@ namespace DataProcessor.source.Index
 
         public override int FirstPositionOf(object key)
         {
-            if(indexMap.ContainsKey(key))
+            if (indexMap.ContainsKey(key))
             {
                 return indexMap[key].First();
             }
@@ -71,7 +65,7 @@ namespace DataProcessor.source.Index
             {
                 throw new ArgumentException("Step cannot be zero.");
             }
-            if (start < 0 || start >= objects.Count || end < 0 || end >= objects.Count)     
+            if (start < 0 || start >= objects.Count || end < 0 || end >= objects.Count)
             {
                 throw new ArgumentOutOfRangeException("Start or end index is out of range.");
             }
@@ -85,7 +79,7 @@ namespace DataProcessor.source.Index
                 }
             }
 
-            if(step < 0)
+            if (step < 0)
             {
                 for (int i = start; i >= end; i += step)
                 {
@@ -101,7 +95,7 @@ namespace DataProcessor.source.Index
             List<object> slicedObjects = new List<object>();
             foreach (var item in indexList)
             {
-                if(item == null)
+                if (item == null)
                 {
                     throw new ArgumentException(nameof(item), "Item cannot be null.");
                 }
@@ -121,14 +115,15 @@ namespace DataProcessor.source.Index
         }
         public override IEnumerator<object> GetEnumerator()
         {
-          for (int i = 0; i < objects.Count; i++)
+            for (int i = 0; i < objects.Count; i++)
             {
                 yield return objects[i];
             }
         }
 
-        public override object this[int index] {
-           protected set
+        public override object this[int index]
+        {
+            protected set
             {
                 if (index < 0 || index >= objects.Count)
                 {
@@ -153,6 +148,11 @@ namespace DataProcessor.source.Index
                 }
                 indexMap[value].Add(index);
             }
-    }
+        }
+
+        public override IIndex Clone()
+        {
+            return new ObjectIndex(objects);
+        }
     }
 }

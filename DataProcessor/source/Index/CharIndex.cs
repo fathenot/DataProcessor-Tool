@@ -160,5 +160,10 @@ namespace DataProcessor.source.Index
                 indexMap[(char)value].Add(index);
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new CharIndex(indexList);
+        }
     }
 }

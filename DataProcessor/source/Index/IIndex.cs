@@ -108,5 +108,7 @@ namespace DataProcessor.source.Index
                 throw new NotSupportedException("Setting index values is not supported in IIndex. Use derived classes for specific implementations.");
             }
         }
+
+        public abstract IIndex Clone();
     }
 }

@@ -267,5 +267,10 @@ namespace DataProcessor.source.Index
 
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new MultiIndex(indexList);
+        }
     }
 }

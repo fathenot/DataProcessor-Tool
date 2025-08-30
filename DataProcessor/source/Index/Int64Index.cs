@@ -158,5 +158,10 @@
                 indexMap[(char)value].Add(index);
             }
         }
+
+        public override IIndex Clone()
+        {
+            return new Int64Index(indexList);
+        }
     }
 }
