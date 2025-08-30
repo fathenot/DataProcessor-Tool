@@ -2,16 +2,24 @@
 using DataProcessor.source.ValueStorage;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace DataProcessor.source.EngineWrapper.ComputationEngine
 {
     /// <summary>
     /// this class provides methods to compute the sum of arrays of doubles and longs using AVX instructions.
-    /// <remarks> currently this is builded for <see cref="IntValuesStorage"/> <see cref="DoubleValueStorage"/> for other sum methods / other calculation 
+    /// <remarks> currently this is builded for <see cref="Int64ValuesStorage"/> <see cref="DoubleValueStorage"/> for other sum methods / other calculation 
     /// methods delevelopers see <see cref="FuncCalculator{T}"/> and <see cref="FuncDefaultValueGenerator{T}"/></remarks>
     /// </summary>
     internal static class CalculateSum
     {
+
+        /// <summary>
+        /// This method uses SIMD to calculate sum of double array
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        /// <exception cref="PlatformNotSupportedException"></exception>
         public static double ComputeSum(double[] data)
         {
             if (!Avx.IsSupported)
@@ -50,6 +58,12 @@ namespace DataProcessor.source.EngineWrapper.ComputationEngine
             return sum;
         }
 
+        /// <summary>
+        /// this method uses SIMD to calculate sum of Int64 array
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        /// <exception cref="PlatformNotSupportedException"></exception>
         public static long ComputeSum(long[] data)
         {
             if (!Avx.IsSupported)
@@ -95,37 +109,66 @@ namespace DataProcessor.source.EngineWrapper.ComputationEngine
             return sum;
         }
 
-        public static double Mean(double[] data, int[]? nullIndicies = null)
+        /// <summary>
+        /// this method uses SIMD to calculate sum of Int32 array
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        /// <exception cref="PlatformNotSupportedException"></exception>
+        public static long ComputeSum(int[] data)
         {
-            if (data == null || data.Length == 0)
-                throw new ArgumentException("Data cannot be null or empty.");
-            double sum = ComputeSum(data);
-            if (nullIndicies != null)
+            if (!Avx.IsSupported)
+                throw new PlatformNotSupportedException("AVX is not supported on this CPU");
+            long sum = 0L;
+            int length = data.Length;
+            int i = 0;
+            // Process 4 longs at a time using AVX
+            if (length >= 4)
             {
-                int count = data.Length - nullIndicies.Length;
-                if (count <= 0)
-                    throw new ArgumentException("No valid data points to calculate mean.");
-                return sum / count;
+                Vector256<int> sumVector = Vector256<int>.Zero;
+                for (; i <= length - 4; i += 4)
+                {
+                    // Use MemoryMarshal to get a pointer to the data
+                    unsafe
+                    {
+                        fixed (int* ptr = &data[i])
+                        {
+                            Vector256<int> dataVector = Avx.LoadVector256(ptr);
+                            sumVector = Avx2.Add(sumVector, dataVector);
+                        }
+                    }
+                }
+                // Horizontal add to get the sum of the vector
+                Vector128<int> lower = sumVector.GetLower();
+                Vector128<int> upper = sumVector.GetUpper();
+                Vector128<int> horizontalSum = Sse2.Add(lower, upper);
+                Span<int> buf = stackalloc int[2];
+                unsafe
+                {
+                    fixed (int* pBuf = buf)
+                    {
+                        Sse2.Store(pBuf, horizontalSum);
+                    }
+                }
+                sum += buf[0] + buf[1];
             }
-
-            return sum / data.Length;
+            // Process remaining elements
+            for (; i < length; i++)
+            {
+                sum += data[i];
+            }
+            return sum;
         }
 
-        public static long Mean(long[] data, int[]? nullIndicies = null)
-        {
-            if (data == null || data.Length == 0)
-                throw new ArgumentException("Data cannot be null or empty.");
-            long sum = ComputeSum(data);
-            if (nullIndicies != null)
-            {
-                int count = data.Length - nullIndicies.Length;
-                if (count <= 0)
-                    throw new ArgumentException("No valid data points to calculate mean.");
-                return sum / count;
-            }
-            return sum / data.Length;
-        }
-
+        /// <summary>
+        /// this method calculate sum of specified type which can be add
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <param name="dropNull"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public static T ComputeSum<T>(T[] data, bool dropNull = true)
         {
             // data must not be null
