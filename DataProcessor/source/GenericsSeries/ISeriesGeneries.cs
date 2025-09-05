@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DataProcessor.source.GenericsSeries
 {
-    public interface ISeries<DataType> : IEnumerable<DataType> where DataType : notnull
+    public interface ISeries<DataType> : IEnumerable<DataType>
     {
         string? Name { get; }
         IReadOnlyList<DataType> Values { get; }
