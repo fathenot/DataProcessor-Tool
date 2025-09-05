@@ -18,14 +18,14 @@ namespace DataProcessor.source.GenericsSeries
                 Converter<object, DataType> converter = (x) => (DataType)x;
                 foreach (var item in positions)
                 {
-                    result.Add(converter(values.GetValue(item)));
+                    result.Add(converter(values.GetValue(item)!));
                 }
                 return result;
             }
         }
         public Type DType => typeof(DataType);
         public IReadOnlyList<DataType> Values => values.Cast<DataType>().ToList();
-        public IReadOnlyList<object> Index => this.index.IndexList;
+        public IReadOnlyList<object> IndexList => this.index.IndexList;
 
         // iterator
         public IEnumerator<DataType> GetEnumerator()
