@@ -3,7 +3,7 @@
 namespace DataProcessor.source.GenericsSeries
 {
     // this partial class contains private methods for Series<DataType>
-    public partial class Series<DataType> : ISeries<DataType> where DataType : notnull
+    public partial class Series<DataType> : ISeries<DataType>
     {
         /// <summary>
         /// Combines values and their corresponding indices into a collection of <see cref="IndexedValue"/> objects.
