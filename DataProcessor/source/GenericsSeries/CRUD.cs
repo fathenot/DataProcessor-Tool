@@ -49,7 +49,11 @@ namespace DataProcessor.source.GenericsSeries
         {
             this.values = new ValueStorage.GenericsStorage<DataType>(other.values.ToArray());
             this.name = other.name;
-            this.index = NonGenericsSeries.Series.CreateIndex(other.index.IndexList.ToList());
+            if (other.index.GetType() == typeof(RangeIndex))
+            {
+                this.index = (RangeIndex)other.index;
+            }
+            else this.index = NonGenericsSeries.Series.CreateIndex(other.index.IndexList.ToList());
         }
     }
 }
