@@ -2,7 +2,9 @@
 using DataProcessor.source.NonGenericsSeries;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -53,7 +55,7 @@ namespace DataProcessor.source.GenericsSeries
             {
                 this.index = (RangeIndex)other.index;
             }
-            else this.index = NonGenericsSeries.Series.CreateIndex(other.index.IndexList.ToList());
+            else this.index = NonGenericsSeries.Series.CreateIndex(other.index.IndexList.ToList());// reuse code generate index from non - generics series
         }
     }
 }
