@@ -22,7 +22,7 @@ namespace DataProcessor.source.GenericsSeries
         private GenericsStorage<DataType> values; // this is the storage of the series values
         private IIndex index; // this is the index of the series, it can be any type of index
 
-        public sealed class GenericsSeriesEnumerator<DataType> : IEnumerator<DataType>
+        public sealed class GenericsSeriesEnumerator : IEnumerator<DataType>
         {
             private readonly Series<DataType> series;
             private int _currentIndex = -1;
