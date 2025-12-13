@@ -1,5 +1,5 @@
 ﻿using DataProcessor.source.UserSettings.DefaultValsGenerator;
-using System.Text.RegularExpressions;
+using System.Reflection.Metadata.Ecma335;
 
 
 namespace DataProcessor.source.GenericsSeries
@@ -59,7 +59,7 @@ namespace DataProcessor.source.GenericsSeries
             public Series<DataType> GetGroup(object key, string? newName = "")
             {
                 if (!groups.TryGetValue(key, out var indices))
-                    throw new KeyNotFoundException($"Nhóm {key} không tồn tại.");
+                    throw new KeyNotFoundException($"Group {key} does not exist.");
                 var values = new List<DataType>(indices.Length);
                 var indexes = new List<object>(indices.Length);
                 foreach (var idx in indices)
@@ -118,8 +118,188 @@ namespace DataProcessor.source.GenericsSeries
                 }
                 return result;
             }
-        }
 
+            /// <summary>
+            /// Calculates the mean for each group.
+            /// </summary>
+            public Dictionary<object, double> Mean(Func<DataType, double> selector)
+            {
+                var result = new Dictionary<object, double>();
+                foreach (var kvp in groups)
+                {
+                    var values = kvp.Value
+                        .Select(idx => selector((DataType)this.source.values.GetValue(idx)))
+                        .ToList();
+
+                    result[kvp.Key] = values.Count > 0 ? values.Average() : double.NaN;
+                }
+                return result;
+            }
+
+            /// <summary>
+            /// Finds the minimum value in each group.
+            /// </summary>
+            public Dictionary<object, DataType> Min(Comparer<DataType>? comparer = null)
+            {
+                comparer ??= Comparer<DataType>.Default;
+                var result = new Dictionary<object, DataType>();
+                foreach (var kvp in groups)
+                {
+                    var vals = kvp.Value.Select(idx => (DataType)this.source.values.GetValue(idx));
+                    result[kvp.Key] = vals.Min();
+                }
+                return result;
+            }
+
+            /// <summary>
+            /// Finds the maximum value in each group.
+            /// </summary>
+            public Dictionary<object, DataType> Max(Comparer<DataType>? comparer = null)
+            {
+                comparer ??= Comparer<DataType>.Default;
+                var result = new Dictionary<object, DataType>();
+                foreach (var kvp in groups)
+                {
+                    var vals = kvp.Value.Select(idx => (DataType)this.source.values.GetValue(idx));
+                    result[kvp.Key] = vals.Max();
+                }
+                return result;
+            }
+
+
+            /// <summary>
+            /// Apply a custom function to each group and return results in dictionary.
+            /// </summary>
+            public Dictionary<object, TResult> Apply<TResult>(Func<Series<DataType>, TResult> func)
+            {
+                var result = new Dictionary<object, TResult>();
+                foreach (var kvp in groups)
+                {
+                    var series = GetGroup(kvp.Key);
+                    result[kvp.Key] = func(series);
+                }
+                return result;
+            }
+
+            /// <summary>
+            /// Transform each value in groups and return a new Series.
+            /// </summary>
+            public Series<DataType> Transform(Func<DataType, DataType> transformer, string? newName = "")
+            {
+                var newValues = new List<DataType>();
+                var newIndexes = new List<object>();
+
+                foreach (var kvp in groups)
+                {
+                    foreach (var idx in kvp.Value)
+                    {
+                        var val = (DataType)this.source.values.GetValue(idx);
+                        newValues.Add(transformer(val));
+                        newIndexes.Add(this.source.index[idx]);
+                    }
+                }
+                return new Series<DataType>(newValues, newName, newIndexes);
+            }
+
+            // <summary>
+            /// Lọc ra những nhóm thỏa predicate (giống groupby.filter trong Pandas)
+            /// </summary>
+            public GroupView Filter(Func<Series<DataType>, bool> predicate)
+            {
+                var filtered = groups
+                    .Where(kvp => predicate(GetGroup(kvp.Key)))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                return new GroupView(source, filtered);
+            }
+
+            /// <summary>
+            /// Apply trả về Series, flatten kết quả như Pandas.
+            /// </summary>
+            public Series<DataType> Apply(Func<Series<DataType>, Series<DataType>> func)
+            {
+                var newValues = new List<DataType>();
+                var newIndex = new List<object>();
+
+                foreach (var kvp in groups)
+                {
+                    var subgroup = GetGroup(kvp.Key);
+                    var result = func(subgroup);
+
+                    newValues.AddRange(result.Values);
+                    newIndex.AddRange(result.Index);
+                }
+
+                return new Series<DataType>(newValues, index: newIndex);
+            }
+
+            /// <summary>
+            /// Aggregate nhiều hàm cùng lúc (giống groupby.agg trong Pandas)
+            /// </summary>
+            public Dictionary<object, Dictionary<string, object>> Aggregate(
+                Dictionary<string, Func<Series<DataType>, object>> aggregations)
+            {
+                var result = new Dictionary<object, Dictionary<string, object>>();
+
+                foreach (var kvp in groups)
+                {
+                    var groupSeries = GetGroup(kvp.Key);
+                    var aggResult = new Dictionary<string, object>();
+
+                    foreach (var (name, func) in aggregations)
+                    {
+                        aggResult[name] = func(groupSeries);
+                    }
+
+                    result[kvp.Key] = aggResult;
+                }
+
+                return result;
+            }
+            // ------------------------- Access Helpers ---------------------------- //
+
+            /// <summary>
+            /// Retrieves the first element associated with the specified key.
+            /// </summary>
+            /// <param name="key">The key used to locate the group of elements.</param>
+            /// <returns>The first element in the group associated with the specified key.</returns>
+            /// <exception cref="KeyNotFoundException">Thrown if the specified <paramref name="key"/> does not exist in the collection  or if the group
+            /// associated with the key is empty.</exception>
+            public DataType First(object key)
+            {
+                if (!groups.TryGetValue(key, out var indices) || indices.Length == 0)
+                    throw new KeyNotFoundException($"Nhóm {key} không tồn tại hoặc rỗng.");
+                return (DataType)this.source.values.GetValue(indices[0]);
+            }
+
+            /// <summary>
+            /// Retrieves the last element in the group associated with the specified key.
+            /// </summary>
+            /// <param name="key">The key identifying the group from which to retrieve the last element.</param>
+            /// <returns>The last element in the group associated with the specified key.</returns>
+            /// <exception cref="KeyNotFoundException">Thrown if the specified <paramref name="key"/> does not exist in the collection or if the group is
+            /// empty.</exception>
+            public DataType Last(object key)
+            {
+                if (!groups.TryGetValue(key, out var indices) || indices.Length == 0)
+                    throw new KeyNotFoundException($"Group {key} does not exist or empty.");
+                return (DataType)this.source.values.GetValue(indices[^1]);
+            }
+
+            /// <summary>
+            /// Retrieves the nth element from a group identified by the specified key.
+            /// </summary>
+            /// <param name="key">The key identifying the group from which to retrieve the element.</param>
+            /// <param name="n">The zero-based index of the element to retrieve within the group.</param>
+            /// <returns>The element at the specified index within the group.</returns>
+            /// <exception cref="IndexOutOfRangeException">Thrown if the group identified by <paramref name="key"/> does not exist or does not contain enough
+            /// elements to satisfy the specified index <paramref name="n"/>.</exception>
+            public DataType Nth(object key, int n)
+            {
+                if (!groups.TryGetValue(key, out var indices) || indices.Length <= n)
+                    throw new IndexOutOfRangeException($"Group {key} does not have {n}.");
+                return (DataType)this.source.values.GetValue(indices[n]);
+            }
+        }
 
     }
 }
