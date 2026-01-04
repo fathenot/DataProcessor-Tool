@@ -89,16 +89,16 @@ namespace DataProcessor.source.GenericsSeries
                 {
                     object key = kvp.Key;
                     int[] indices = kvp.Value;
-                    DataType sụm = defaultValueGenerator != null ? defaultValueGenerator.GenerateDefaultValue() : default;
+                    DataType sum = defaultValueGenerator != null ? defaultValueGenerator.GenerateDefaultValue() : default;
 
                     foreach (var idx in indices)
                     {
                         if (this.source.values[idx] != null)
                         {
-                            sụm = aggregator.Add(sụm, (DataType)this.source.values.GetValue(idx));
+                            sum = aggregator.Add(sum, (DataType)this.source.values.GetValue(idx));
                         }
                     }
-                    result[key] = sụm;
+                    result[key] = sum;
                 }
 
                 return result;
@@ -232,9 +232,18 @@ namespace DataProcessor.source.GenericsSeries
                 return new Series<DataType>(newValues, index: newIndex);
             }
 
-            /// <summary>
-            /// Aggregate nhiều hàm cùng lúc (giống groupby.agg trong Pandas)
-            /// </summary>
+           /// <summary>
+           /// Applies the provided aggregation functions to each group and returns the results.
+           /// </summary>
+           /// <param name="aggregations">
+           /// A dictionary mapping aggregation names to functions. Each function is invoked with a
+           /// <see cref="Series{DataType}"/> representing a group and should return the aggregation result.
+           /// </param>
+           /// <returns>
+           /// A dictionary that maps each group key to another dictionary. The inner dictionary maps
+           /// aggregation names to the computed aggregation result for that group.
+           /// </returns>
+           /// <exception cref="ArgumentNullException">Thrown if <paramref name="aggregations"/> is null.</exception>
             public Dictionary<object, Dictionary<string, object>> Aggregate(
                 Dictionary<string, Func<Series<DataType>, object>> aggregations)
             {
