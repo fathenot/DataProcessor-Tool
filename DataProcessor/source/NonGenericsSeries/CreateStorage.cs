@@ -5,7 +5,7 @@ namespace DataProcessor.source.NonGenericsSeries
     {
         internal static AbstractValueStorage CreateValueStorage(List<object?> elements, bool copy = false)
         {
-            var dataType = Support.InferDataType(elements);
+            var dataType = TypeInference.InferDataType(elements);
             if (dataType == typeof(bool))
             {
                 // If the data type is boolean, we can use BoolStorage
@@ -265,7 +265,7 @@ namespace DataProcessor.source.NonGenericsSeries
                 }
                 return new CharStorage(elements.Select(Convert.ToChar).ToArray(), false);
             }
-            else if (Support.IsIntegerType(type))
+            else if (TypeInference.IsIntegerType(type))
             {
                 if ((elements.AsParallel().Any(element => element == null)))
                 {

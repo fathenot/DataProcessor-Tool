@@ -1,26 +1,41 @@
 ﻿using System.Reflection;
-
+using DataProcessor.source.NonGenericsSeries.NumericTypeSystem;
 namespace DataProcessor.source.NonGenericsSeries
 {
-    internal static class Support
+    internal static class TypeInference
     {
         /// <summary>
-        /// Determines whether the specified <see cref="Type"/> represents an integer type.
+        /// Determines whether the specified <see cref="Type"/> represents an integer numeric type
+        /// according to the this library numeric type system.
         /// </summary>
-        /// <remarks>Integer types include <see cref="byte"/>, <see cref="sbyte"/>, <see cref="short"/>, 
-        /// <see cref="ushort"/>, <see cref="int"/>, <see cref="uint"/>, <see cref="long"/>, <see
-        /// cref="nint"/>, and <see cref="nuint"/>. (ulong is unsuported due to the currrent types of storage doesn't support it)</remarks>
-        /// <param name="type">The <see cref="Type"/> to evaluate.</param>
-        /// <returns><see langword="true"/> if the specified <see cref="Type"/> is an integer type;  otherwise, <see
-        /// langword="false"/>.</returns>
+        /// <remarks>
+        /// This method classifies integer types by mapping the provided <see cref="Type"/> to its
+        /// corresponding <see cref="NumericKind"/> and evaluating it using the numeric contract.
+        /// <para>
+        /// Supported integer types include signed and unsigned integral primitives such as
+        /// <see cref="byte"/>, <see cref="sbyte"/>, <see cref="short"/>, <see cref="ushort"/>,
+        /// <see cref="int"/>, <see cref="uint"/>, <see cref="long"/>, <see cref="ulong"/>,
+        /// <see cref="nint"/>, and <see cref="nuint"/>.
+        /// </para>
+        /// <para>
+        /// This method reflects the logical numeric classification and is independent of
+        /// storage or indexing constraints.
+        /// </para>
+        /// </remarks>
+        /// <param name="type">The <see cref="Type"/> to evaluate. This parameter must not be <see langword="null"/>.</param>
+        /// <returns>
+        /// <see langword="true"/> if the specified <see cref="Type"/> is classified as an integer numeric type;
+        /// otherwise, <see langword="false"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if <paramref name="type"/> is <see langword="null"/>.
+        /// </exception>
         internal static bool IsIntegerType(Type type)
         {
-            return type == typeof(byte) || type == typeof(sbyte) ||
-                   type == typeof(short) || type == typeof(ushort) ||
-                   type == typeof(int) || type == typeof(uint) ||
-                   type == typeof(long) ||
-                   type == typeof(nint) || type == typeof(nuint);
+            return NumericKindExtensions.IsInteger(
+                NumericKindExtensions.GetNumericKind(type));
         }
+
 
         /// <summary>
         /// Determines whether the specified <see cref="Type"/> represents a floating-point numeric type.
@@ -39,11 +54,13 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <param name="type">The <see cref="Type"/> to evaluate. Cannot be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if the specified <see cref="Type"/> represents a numeric type;  otherwise, <see
         /// langword="false"/>.</returns>
-        internal static bool isNumericsType(Type type)
+        internal static bool IsNumericType(Type type)
         {
-            ArgumentNullException.ThrowIfNull(type, "type");
-            Type? sampleValue = default;
-            return IsNumerics(sampleValue);
+            return type == typeof(byte) || type == typeof(sbyte) ||
+           type == typeof(short) || type == typeof(ushort) ||
+           type == typeof(int) || type == typeof(uint) ||
+           type == typeof(long) || type == typeof(float) ||
+           type == typeof(double) || type == typeof(decimal);
         }
 
         /// <summary>
@@ -54,7 +71,7 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <param name="value">The object to evaluate. Can be null.</param>
         /// <returns><see langword="true"/> if the object is a numeric type, such as <see cref="int"/>, <see cref="double"/>, or
         /// <see cref="decimal"/>; otherwise, <see langword="false"/>.</returns>
-        internal static bool IsNumerics(object? value)
+        internal static bool IsNumeric(object? value)
         {
             return value is sbyte || value is byte || value is short
                   || value is ushort || value is int || value is uint || value is long || value is ulong || value is float || value is double || value is decimal;
@@ -74,57 +91,11 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <item><description><see cref="System.Int64"/> if the list contains integer values (e.g., int, long, short,
         /// byte).</description></item> <item><description><see cref="System.Object"/> if the list contains non-numeric
         /// values or is empty.</description></item> </list></returns>
-        internal static Type InferNumericType(List<object?> values)
+        internal static Type InferNumericType(IEnumerable<object?> values)
         {
-            bool hasDecimal = false;
-            bool hasDouble = false;
-            bool hasInt32 = false;
-            bool hasInt64 = false;
-            foreach (var v in values)
-            {
-                if (v == null || v == DBNull.Value) continue;
-
-                switch (v)
-                {
-                    case int or short or byte:
-                        hasInt32= true;
-                        break;
-                    case long:
-                        hasInt64= true;
-                        break;
-                    case float or double:
-                        hasDouble = true;
-                        break;
-                    case decimal:
-                        hasDecimal = true;
-                        break;
-                    default:
-                        return typeof(object); // Không phải số → object
-                }
-            }
-            
-            // handle the case when values contains value exceed the max value of type decimal (it wiill cast to double -> sacrifice the precision)
-            if (hasDecimal && values.Where(v => v is IConvertible && v != null && v != DBNull.Value)
-                        .Any(v =>
-                        {
-                            try
-                            {
-                                return Convert.ToDecimal(v) > decimal.MaxValue;
-                            }
-                            catch
-                            {
-                                return false;
-                            }
-                        }))
-            {
-                return typeof(double);
-            }
-            return hasDecimal ? typeof(decimal)
-                 : hasDouble ? typeof(double)
-                 : hasInt64 ? typeof(long)
-                 : hasInt32? typeof(int)
-                 : typeof(object); // Trường hợp danh sách rỗng hoặc chỉ chứa null
+            return NumericTypeSystem.NumericInference.InferNumericType(values);
         }
+
 
         /// <summary>
         /// Infers the most appropriate data type for a collection of values.
@@ -152,7 +123,7 @@ namespace DataProcessor.source.NonGenericsSeries
 
             bool AllNumerics = values
                 .Where(v => v != null && v != DBNull.Value) // Loại bỏ các giá trị null và DBNull.Value
-                .All(v => IsNumerics(v)); // Kiểm tra tính số học của phần tử còn lại
+                .All(v => IsNumeric(v)); // Kiểm tra tính số học của phần tử còn lại
             if (AllNumerics)
             {
                 return InferNumericType(values);
