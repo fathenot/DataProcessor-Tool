@@ -37,7 +37,7 @@ namespace DataProcessor.source.ValueStorage
         {
             this.values = new decimal[decimals.Length];
             nullBitMap = new NullBitMap(decimals.Length);
-            handle = GCHandle.Alloc(decimals, GCHandleType.Pinned);
+            handle = GCHandle.Alloc(this.values, GCHandleType.Pinned);
             for (int i = 0; i < decimals.Length; i++)
             {
                 if (decimals[i] == null)
@@ -84,6 +84,8 @@ namespace DataProcessor.source.ValueStorage
 
         // Properties
         internal override int Count => values.Length;
+
+        internal override StorageKind storageKind => StorageKind.Decimal;
         internal override IEnumerable<int> NullIndices
         {
             get

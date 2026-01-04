@@ -62,6 +62,8 @@ namespace DataProcessor.source.ValueStorage
         /// <summary>
         /// Gets an array of strings.
         /// </summary>
+        /// 
+        internal override StorageKind storageKind => StorageKind.String;
         internal string?[] Strings
         {
             get { return strings; }

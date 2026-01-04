@@ -112,6 +112,8 @@ namespace DataProcessor.source.ValueStorage
 
         internal override Type ElementType => typeof(DateTime);
 
+        internal override StorageKind storageKind => StorageKind.DateTime;
+
         internal override IEnumerable<int> NullIndices
         {
             get

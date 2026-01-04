@@ -30,25 +30,37 @@ namespace DataProcessor.source.GenericsSeries
             List<IndexedValue> indexedValues = this.ZipIndexValue();
             // sort indexed values based on values
             indexedValues.Sort((x, y) => (comparer ?? Comparer<DataType>.Default).Compare(x.Value, y.Value));
-            if (comparer == null)
-            {
-                comparer = Comparer<DataType>.Default;
-                var sorted = indexedValues.OrderBy(x => x.Value, comparer).ToList();
-                return new Series<DataType>(sorted.Select(x => x.Value).ToList(), this.name, sorted.Select(x => x.Index).ToList());
-            }
-            var sortedValues = indexedValues.OrderBy(x => x.Value, comparer).ToList();
-            return new Series<DataType>(sortedValues.Select(x => x.Value).ToList(), this.name, sortedValues.Select(x => x.Index).ToList());
+            return new Series<DataType>(indexedValues.Select(x => x.Value).ToList(), this.name, indexedValues.Select(x => x.Index).ToList());
         }
+
+        /// <summary>
+        /// Create a view from series
+        /// </summary>
+        /// <param name="indicies"></param>
+        /// <returns></returns>
         public SeriesView GetView(List<object> indicies)
         {
             return new SeriesView(this, indicies);
         }
 
+        /// <summary>
+        /// Create a view from series
+        /// </summary>
+        /// <param name="indicies"></param>
+        /// <returns></returns>
         public SeriesView GetView((object start, object end, int step) slice)
         {
             return new SeriesView(this, slice);
         }
 
+       /// <summary>
+       /// Groups the elements of the current object by their index values and returns a view of the grouped data.
+       /// </summary>
+       /// <remarks>This method identifies distinct index values from the current object's index list,
+       /// determines the positions of each index, and groups the elements accordingly. The resulting groups are
+       /// returned as a <see cref="GroupView"/>.</remarks>
+       /// <returns>A <see cref="GroupView"/> representing the grouped elements, where each group is keyed by its index value and
+       /// contains the positions of the elements in the group.</returns>
         public GroupView GroupsByIndex()
         {
             Dictionary<object, int[]> keyValuePairs = new Dictionary<object, int[]>();
@@ -64,6 +76,12 @@ namespace DataProcessor.source.GenericsSeries
             return new GroupView(this, keyValuePairs);
         }
 
+        /// <summary>
+        /// Counts the number of elements in each group.
+        /// </summary>
+        /// <returns>
+        /// A dictionary mapping each group key to the number of elements it contains.
+        /// </returns>
         public GroupView GroupByValue()
         {
             Dictionary<object, int[]> keyValuePairs = new Dictionary<object, int[]>();
@@ -71,9 +89,9 @@ namespace DataProcessor.source.GenericsSeries
             foreach (var ele in removedDuplicate)
             {
                 keyValuePairs[ele] = this.values.Select((value, index) => new { value, index })
-                            .Where(x => ele.Equals(x))
+                            .Where(x => ele.Equals(x.value))
                             .Select(x => x.index)
-                            .ToList().ToArray();
+                            .ToArray();
             }
             return new GroupView(this, keyValuePairs);
         }
@@ -88,16 +106,43 @@ namespace DataProcessor.source.GenericsSeries
             );
         }
 
+        /// <summary>
+        /// Copies the elements of the collection to a specified array, starting at the specified array index.
+        /// </summary>
+        /// <param name="array">The one-dimensional array that is the destination of the elements copied from the collection. The array must
+        /// have zero-based indexing.</param>
+        /// <param name="arrayIndex">The zero-based index in the destination array at which copying begins.</param>
         public void CopyTo(DataType[] array, int arrayIndex)
         {
-            values.Cast<DataType>().ToList().CopyTo(array, arrayIndex);
+            values.ToList().CopyTo(array, arrayIndex);
         }
 
+        /// <summary>
+        /// Converts the current generic series to a non-generic <see cref="Series"/> instance.
+        /// </summary>
+        /// <remarks>The returned <see cref="Series"/> will have the same values, index, and name as the
+        /// current instance, but will not be strongly typed to a specific data type.</remarks>
+        /// <returns>A non-generic <see cref="Series"/> instance containing the same data as the current series.</returns>
         public Series ConvertToNonGenerics()
         {
-            List<object?> values = new List<object?>();
-            values.AddRange(this.values);
-            return new Series(this.values, this.index, typeof(DataType), this.name);
+            return new Series(this.values, this.index, typeof(DataType), this.name, copy:true);
+        }
+
+        /// <summary>
+        /// Applies the specified aggregation function to each element in the series and returns a new series containing
+        /// the aggregated results.
+        /// </summary>
+        /// <remarks>The returned series will have the same index as the original series, but the values
+        /// will be transformed based on the provided aggregation function.</remarks>
+        /// <typeparam name="Tresult">The type of the result produced by the aggregation function.</typeparam>
+        /// <param name="function">A function that takes an element of type <typeparamref name="DataType"/> and returns a value of type
+        /// <typeparamref name="Tresult"/>.</param>
+        /// <returns>A new <see cref="Series{Tresult}"/> containing the results of applying the specified function to each
+        /// element in the series.</returns>
+        public Series<Tresult> Aggregate<Tresult>(Func<DataType, Tresult> function)
+        {
+            List<Tresult> aggregatedValues = this.values.Select(function).ToList();
+            return new Series<Tresult>(aggregatedValues, null, this.index.IndexList.ToList());
         }
     }
 }

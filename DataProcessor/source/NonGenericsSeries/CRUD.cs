@@ -100,7 +100,7 @@ namespace DataProcessor.source.NonGenericsSeries
             else
             {
                 // infer the data type from the values
-                this.dataType = Support.InferDataType(values)!;
+                this.dataType = TypeInference.InferDataType(values)!;
             }
 
             // create the value storage based on the values and data type
