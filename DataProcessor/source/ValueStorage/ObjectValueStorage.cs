@@ -42,6 +42,8 @@ namespace DataProcessor.source.ValueStorage
         {
             throw new NotImplementedException();
         }
+
+        internal override StorageKind storageKind => StorageKind.Object;
         internal override int Count => objects.Length;
         internal override IEnumerable<int> NullIndices
         {

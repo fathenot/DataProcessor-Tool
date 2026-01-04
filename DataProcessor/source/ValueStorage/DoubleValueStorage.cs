@@ -86,6 +86,8 @@ namespace DataProcessor.source.ValueStorage
         
         // Properties
         internal override Type ElementType => typeof(double);
+
+        internal override StorageKind storageKind => StorageKind.Double;
         internal override int Count => values.Length;
         internal double[] NonNullValues
         {

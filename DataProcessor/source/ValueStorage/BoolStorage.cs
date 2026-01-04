@@ -88,6 +88,7 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        internal override StorageKind storageKind => StorageKind.Boolean;
         internal override nint GetNativeBufferPointer()
         {
             throw new NotImplementedException();
