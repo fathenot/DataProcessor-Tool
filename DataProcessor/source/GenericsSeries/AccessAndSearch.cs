@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DataProcessor.source.GenericsSeries
+﻿namespace DataProcessor.source.GenericsSeries
 {
     public partial class Series<DataType>
     {
@@ -31,7 +25,7 @@ namespace DataProcessor.source.GenericsSeries
         public Series<DataType> Tail(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than or equal to 0.");
-            return new Series<DataType>(values.Skip(Math.Max(0, values.Count - count)).Cast<DataType>().ToList(), 
+            return new Series<DataType>(values.Skip(Math.Max(0, values.Count - count)).Cast<DataType>().ToList(),
                 index: index.IndexList.Skip(Math.Max(0, index.IndexList.Count - count)).ToList());
         }
 
@@ -77,7 +71,7 @@ namespace DataProcessor.source.GenericsSeries
         /// if no matching item is found.</returns>
         public (DataType value, object index)? FindFirstOccur(DataType item, IEqualityComparer<DataType>? comparer = null)
         {
-            for(int i = 0; i < values.Count; i++)
+            for (int i = 0; i < values.Count; i++)
             {
                 if (EqualityComparer<DataType>.Default.Equals((DataType)values[i], item))
                 {
@@ -85,6 +79,42 @@ namespace DataProcessor.source.GenericsSeries
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// Finds all positions of the specified item in the collection.
+        /// </summary>
+        /// <remarks>The method performs a linear search to find all occurrences of the specified item. 
+        /// If <paramref name="item"/> is <see langword="null"/>, the method matches positions where the collection
+        /// contains <see langword="null"/> values.</remarks>
+        /// <param name="item">The item to search for in the collection. Can be <see langword="null"/>.</param>
+        /// <returns>A list of zero-based indices representing the positions of the specified item in the collection.  Returns an
+        /// empty list if the item is not found.</returns>
+        public List<int> FindAllPosition(DataType item)
+        {
+            var positions = new List<int>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (item != null && values[i] != null && item.Equals(values[i]))
+                {
+                    positions.Add(i);
+                }
+                else if (item == null && values[i] == null)
+                {
+                    positions.Add(i);
+                }
+            }
+            return positions;
+        }
+
+        /// <summary>
+        /// Retrieves the item at the specified position in the collection.
+        /// </summary>
+        /// <param name="pos">The zero-based index of the item to retrieve. Must be within the bounds of the collection.</param>
+        /// <returns>The item of type <see cref="DataType"/> at the specified position.</returns>
+        public DataType GetItemAtPos(int pos)
+        {
+            return this.values.GetValue(pos);
         }
     }
 }

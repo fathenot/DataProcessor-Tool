@@ -104,6 +104,7 @@ namespace DataProcessor.source.ValueStorage
             }
         }
 
+        internal override StorageKind storageKind => StorageKind.Char;
         internal override void SetValue(int index, object? value)
         {
             if (index < 0 || index >= Count)

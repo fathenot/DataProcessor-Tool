@@ -92,9 +92,6 @@ namespace DataProcessor.source.ValueStorage
 
         }
 
-
-
-        // currently unused, but may be used in the future for transaction support
-        internal virtual void ApplyTransaction(Dictionary<int, object?> transaction) { }
+        internal abstract StorageKind storageKind { get; }
     }
 }

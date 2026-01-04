@@ -2,7 +2,9 @@
 using DataProcessor.source.NonGenericsSeries;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -25,56 +27,35 @@ namespace DataProcessor.source.GenericsSeries
         /// index must not contain null values, and its type determines the specific index implementation.</param>
         public Series(List<DataType> data, string? name = null, List<object>? index = null)
         {
-            this.name = name ?? string.Empty;
-            this.values = new ValueStorage.GenericsStorage<DataType>(data);
-            if(index == null)
+            this.values = new ValueStorage.GenericsStorage<DataType>(data.ToArray());
+            this.name = name;
+
+            if (index != null)
             {
-                this.index = new RangeIndex(0, data.Count - 1);
-            }
-            else
-            {
-                // validate index must not contain null
-                var finalIndex = index.Cast<object>().ToList();
+                if (data.Count() != index.Count()) throw new ArgumentException($"Length of index must match length of data.", nameof(index));
 
-                // check type of index and create index
-                bool containGroups = DataProcessor.source.Index.IndexUtils.ContainsGroupedIndex(index);
-                if (containGroups)
+                if (index.Count == 0 && data.Count == 0)
                 {
-                    this.index = new Index.MultiIndex(index.Select(i => i is object[]? new Index.MultiKey((object[])i) : new Index.MultiKey(new object[] { i })).ToList());
+                    this.index = new ObjectIndex(index);
                 }
+                else
+                {
+                    this.index = NonGenericsSeries.Series.CreateIndex(index);// reuse code generate index from non-generics series
 
-                else if (Support.InferDataType(finalIndex) == typeof(string))
-                {
-                    this.index = new Index.StringIndex(index.Cast<string>().ToList());
-                }
-                else if (Support.InferDataType(finalIndex) == typeof(long))
-                {
-                    this.index = new Index.Int64Index(index.Cast<long>().ToList());
-                }
-                else if (Support.InferDataType(finalIndex) == typeof(double))
-                {
-                    this.index = new Index.DoubleIndex(index.Cast<double>().ToList());
-                }
-                else if (Support.InferDataType(finalIndex) == typeof(decimal))
-                {
-                    this.index = new Index.DecimalIndex(index.Cast<decimal>().ToList());
-                }
-
-                else if (Support.InferDataType(finalIndex) == typeof(DateTime))
-                {
-                    this.index = new Index.DateTimeIndex(finalIndex.Cast<DateTime>().ToList());
-                }
-
-                else if (Support.InferDataType(finalIndex) == typeof(char))
-                {
-                    this.index = new Index.CharIndex(index.Cast<char>().ToList());
-                }
-
-                else if (Support.InferDataType(finalIndex) == typeof(object))
-                {
-                    this.index = new Index.ObjectIndex(finalIndex);
                 }
             }
+            else this.index = new RangeIndex(0, Count - 1);
+        }
+
+        public Series(Series<DataType> other)
+        {
+            this.values = new ValueStorage.GenericsStorage<DataType>(other.values.ToArray());
+            this.name = other.name;
+            if (other.index.GetType() == typeof(RangeIndex))
+            {
+                this.index = (RangeIndex)other.index;
+            }
+            else this.index = NonGenericsSeries.Series.CreateIndex(other.index.IndexList.ToList());// reuse code generate index from non - generics series
         }
     }
 }

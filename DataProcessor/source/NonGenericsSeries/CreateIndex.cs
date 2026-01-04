@@ -40,12 +40,12 @@ namespace DataProcessor.source.NonGenericsSeries
             }
 
             // if the index does not contain grouped elements, infer the data type and create the appropriate index
-            var datatype = Support.InferDataType(index);
+            var datatype = TypeInference.InferDataType(index);
             if (datatype == typeof(string))
             {
                 return new StringIndex(index.Cast<string>().ToList());
             }
-            else if (Support.IsIntegerType(datatype))
+            else if (TypeInference.IsIntegerType(datatype))
             {
                 return new Int64Index(index.Select(Convert.ToInt64).ToList());
             }
@@ -53,7 +53,7 @@ namespace DataProcessor.source.NonGenericsSeries
             {
                 return new DateTimeIndex(index.Select(Convert.ToDateTime).ToList());
             }
-            else if (Support.IsFloatingType(datatype))
+            else if (TypeInference.IsFloatingType(datatype))
             {
                 return new DoubleIndex(index.Select(Convert.ToDouble).ToList());
             }
