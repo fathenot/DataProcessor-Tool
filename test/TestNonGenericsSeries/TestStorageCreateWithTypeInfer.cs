@@ -18,7 +18,7 @@ namespace test.TestNonGenericsSeries
                 list.Add(i); // int
             }
 
-            Assert.Equal(typeof(int), Support.InferDataType(list));
+            Assert.Equal(typeof(int), TypeInference.InferDataType(list));
             AbstractValueStorage storage = Series.CreateValueStorage(list);
             Assert.True(storage is Int32ValuesStorage); // your internal naming
         }
@@ -38,7 +38,7 @@ namespace test.TestNonGenericsSeries
         public void TestTypeInfer_Multiple(object[] rawData, Type expectedType, Type expectedStorageType)
         {
             var list = rawData.ToList();
-            var inferred = Support.InferDataType(list);
+            var inferred = TypeInference.InferDataType(list);
             Assert.Equal(expectedType, inferred);
 
             var storage = Series.CreateValueStorage(list);

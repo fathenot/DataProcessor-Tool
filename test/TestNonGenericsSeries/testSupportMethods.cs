@@ -17,7 +17,7 @@ namespace test.TestNonGenericsSeries
         [InlineData(typeof(string), false)]
         public void IsIntegerType_ReturnsExpectedResult(Type type, bool expected)
         {
-            Assert.Equal(expected, Support.IsIntegerType(type));
+            Assert.Equal(expected, TypeInference.IsIntegerType(type));
         }
 
         [Theory]
@@ -27,7 +27,7 @@ namespace test.TestNonGenericsSeries
         [InlineData(typeof(int), false)]
         public void IsFloatingType_ReturnsExpectedResult(Type type, bool expected)
         {
-            Assert.Equal(expected, Support.IsFloatingType(type));
+            Assert.Equal(expected, TypeInference.IsFloatingType(type));
         }
 
         [Theory]
@@ -38,14 +38,14 @@ namespace test.TestNonGenericsSeries
         [InlineData(null, false)]
         public void IsNumerics_ReturnsExpectedResult(object? value, bool expected)
         {
-            Assert.Equal(expected, Support.IsNumerics(value));
+            Assert.Equal(expected, TypeInference.IsNumeric(value));
         }
 
         [Fact]
         public void InferNumericType_ReturnsInt64_WhenOnlyIntegers()
         {
             var values = new List<object?> { 1, 2, 3, 4L };
-            var result = Support.InferNumericType(values);
+            var result = TypeInference.InferNumericType(values);
             Assert.Equal(typeof(long), result);
         }
 
@@ -53,7 +53,7 @@ namespace test.TestNonGenericsSeries
         public void InferNumericType_ReturnsInt32_WhenOnlyIntegers()
         {
             var values = new List<object?> { 1, 2, 3, 4 };
-            var result = Support.InferNumericType(values);
+            var result = TypeInference.InferNumericType(values);
             Assert.Equal(typeof(int), result);
         }
 
@@ -61,7 +61,7 @@ namespace test.TestNonGenericsSeries
         public void InferNumericType_ReturnsDouble_WhenFloatsPresent()
         {
             var values = new List<object?> { 1, 2.5f, 3 };
-            var result = Support.InferNumericType(values);
+            var result = TypeInference.InferNumericType(values);
             Assert.Equal(typeof(double), result);
         }
 
@@ -69,7 +69,7 @@ namespace test.TestNonGenericsSeries
         public void InferNumericType_ReturnsDecimal_WhenDecimalsPresent()
         {
             var values = new List<object?> { 1, (decimal)2.5, 3 };
-            var result = Support.InferNumericType(values);
+            var result = TypeInference.InferNumericType(values);
             Assert.Equal(typeof(decimal), result);
         }
 
@@ -77,7 +77,7 @@ namespace test.TestNonGenericsSeries
         public void InferNumericType_ReturnsObject_WhenMixedWithNonNumerics()
         {
             var values = new List<object?> { 1, "hello", 3 };
-            var result = Support.InferNumericType(values);
+            var result = TypeInference.InferNumericType(values);
             Assert.Equal(typeof(object), result);
         }
 
@@ -85,35 +85,35 @@ namespace test.TestNonGenericsSeries
         public void InferDataType_ReturnsObject_WhenOnlyNulls()
         {
             var values = new List<object?> { null, DBNull.Value };
-            Assert.Equal(typeof(object), Support.InferDataType(values));
+            Assert.Equal(typeof(object), TypeInference.InferDataType(values));
         }
 
         [Fact]
         public void InferDataType_ReturnsDecimal_WhenDecimalsPresent()
         {
             var values = new List<object?> { 1.5m, 2.5m, 3.5m };
-            Assert.Equal(typeof(decimal), Support.InferDataType(values));
+            Assert.Equal(typeof(decimal), TypeInference.InferDataType(values));
         }
 
         [Fact]
         public void InferDataType_ReturnsValueType_WhenDifferentStructs()
         {
             var values = new List<object?> { DateTime.Now, Guid.NewGuid() };
-            Assert.Equal(typeof(ValueType), Support.InferDataType(values));
+            Assert.Equal(typeof(ValueType), TypeInference.InferDataType(values));
         }
 
         [Fact]
         public void InferDataType_ReturnsBaseClass_WhenReferenceTypesHaveCommonAncestor()
         {
             var values = new List<object?> { "abc", "def", "ghi" };
-            Assert.Equal(typeof(string), Support.InferDataType(values));
+            Assert.Equal(typeof(string), TypeInference.InferDataType(values));
         }
 
         [Fact]
         public void InferDataType_ReturnsObject_WhenMixedReferenceAndValueTypes()
         {
             var values = new List<object?> { "abc", 123 };
-            Assert.Equal(typeof(object), Support.InferDataType(values));
+            Assert.Equal(typeof(object), TypeInference.InferDataType(values));
         }
 
         [Theory]
@@ -125,15 +125,27 @@ namespace test.TestNonGenericsSeries
         [InlineData(typeof(int), typeof(ulong), false)]
         public void CanCastValueType_CheckCompatibility(Type from, Type to, bool expected)
         {
-            var result = Support.CanCastValueType(from, to);
+            var result = TypeInference.CanCastValueType(from, to);
             Assert.Equal(expected, result);
         }
 
         [Fact]
         public void CanCastValueType_SupportsCustomOperator()
         {
-            var result = Support.CanCastValueType(typeof(CustomA), typeof(CustomB));
+            var result = TypeInference.CanCastValueType(typeof(CustomA), typeof(CustomB));
             Assert.True(result);
+        }
+
+        [Fact]
+        public void isNumericsType_ReturnsTrue_ForNumericTypes()
+        {
+            // BUG: Current implementation always returns false
+            // This test will FAIL until the bug is fixed
+            Assert.True(TypeInference.IsNumericType(typeof(int)));
+            Assert.True(TypeInference.IsNumericType(typeof(double)));
+            Assert.True(TypeInference.IsNumericType(typeof(decimal)));
+            Assert.True(TypeInference.IsNumericType(typeof(long)));
+            Assert.True(TypeInference.IsNumericType(typeof(float)));
         }
 
         private struct CustomA
