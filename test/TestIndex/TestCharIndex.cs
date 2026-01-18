@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DataProcessor.source.Index;
+using DataProcessor.source.IndexTypes;
 namespace test.TestIndex
 {
     public class TestCharIndex
@@ -22,7 +22,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'a' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act & Assert
             // Add assertions to verify the expected behavior
             Assert.Equal(4, charIndex.Count);
@@ -37,7 +37,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'a' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act
             var positionsA = charIndex.GetIndexPosition('a');
             var positionsB = charIndex.GetIndexPosition('b');
@@ -53,7 +53,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'a' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act
             var index0 = charIndex.GetIndex(0);
             var index1 = charIndex.GetIndex(1);
@@ -71,7 +71,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'a' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act
             var distinctChars = charIndex.DistinctIndices();
             // Assert
@@ -83,7 +83,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'a' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act
             var firstPositionA = charIndex.FirstPositionOf('a');
             var firstPositionB = charIndex.FirstPositionOf('b');
@@ -99,7 +99,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'd', 'e' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act
             var slicedIndex = charIndex.Slice(1, 3);
             // Assert
@@ -108,7 +108,7 @@ namespace test.TestIndex
             slicedIndex = charIndex.Slice(4, 0, -2);
             Assert.Equal(new List<char> { 'e', 'c', 'a' }, slicedIndex.Cast<char>().ToList());
 
-            slicedIndex = charIndex.Slice(new List<object> { 'a', 'd'});
+            slicedIndex = charIndex.TakeKeys(new List<object> { 'a', 'd'});
             Assert.Equal(new List<char> { 'a', 'd' }, slicedIndex.Cast<char>().ToList());
         }
 
@@ -117,7 +117,7 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char>();
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Assert
             Assert.Throws<ArgumentOutOfRangeException>(() => charIndex.Slice(0, 0));
         }
@@ -127,10 +127,10 @@ namespace test.TestIndex
         {
             // Arrange
             var chars = new List<char> { 'a', 'b', 'c', 'd', 'e' };
-            var charIndex = new DataProcessor.source.Index.CharIndex(chars);
+            var charIndex = new CharIndex(chars);
             // Act
             // Assert
-            Assert.Throws<ArgumentException>(() => charIndex.Slice(new List<object> { null }));
+            Assert.Throws<ArgumentException>(() => charIndex.TakeKeys(new List<object> { null }));
         }
     }
 }

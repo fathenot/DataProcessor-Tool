@@ -1,6 +1,6 @@
-﻿namespace DataProcessor.source.Index
+﻿namespace DataProcessor.source.IndexTypes
 {
-    public class DecimalIndex : IIndex
+    public class DecimalIndex : DataIndex
     {
         List<decimal> decimals;
         Dictionary<decimal, List<int>> indexMap;
@@ -76,12 +76,12 @@
         /// <param name="end">The zero-based ending index of the slice. Must be within the bounds of the current index.</param>
         /// <param name="step">The step size for the slice. Must not be zero. Positive values iterate forward, while negative values
         /// iterate backward.</param>
-        /// <returns>A new <see cref="IIndex"/> containing the elements from the current index that match the specified slicing
+        /// <returns>A new <see cref="Index"/> containing the elements from the current index that match the specified slicing
         /// criteria.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="step"/> is zero.</exception>
         /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="start"/> or <paramref name="end"/> is outside the bounds of the current index.</exception>
 
-        public override IIndex Slice(int start, int end, int step = 1)
+        public override DataIndex Slice(int start, int end, int step = 1)
         {
             if (step == 0)
             {
@@ -124,7 +124,7 @@
         /// <returns>A new <see cref="DecimalIndex"/> containing the elements corresponding to the specified keys.</returns>
         /// <exception cref="ArgumentException">Thrown if any key in <paramref name="indexList"/> is not a <see langword="decimal"/> or does not exist in
         /// the current index.</exception>
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
             List<decimal> slicedDecimals = new List<decimal>();
             foreach (var item in indexList)
@@ -185,7 +185,7 @@
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new DecimalIndex(decimals);
         }

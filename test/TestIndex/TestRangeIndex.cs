@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 
 namespace test.TestIndex
 {
@@ -9,7 +9,7 @@ namespace test.TestIndex
         {
             // Arrange
             var rangeValues = new List<int> { 1, 2, 3, 4, 5 };
-            var index = new DataProcessor.source.Index.RangeIndex(1, 5);
+            var index = new RangeIndex(1, 5);
 
             // Act
             var count = index.Count;
@@ -24,7 +24,7 @@ namespace test.TestIndex
         public void TestRangeIndexContains()
         {
             // Arrange
-            var index = new DataProcessor.source.Index.RangeIndex(1, 5);
+            var index = new RangeIndex(1, 5);
 
             // Act
             var containsValue = index.Contains(3);
@@ -37,7 +37,7 @@ namespace test.TestIndex
         public void TestRangeIndexDoesNotContain1()
         {
             // Arrange
-            var index = new DataProcessor.source.Index.RangeIndex(1, 5);
+            var index = new RangeIndex(1, 5);
 
             // Act
             var containsValue = index.Contains(6);
@@ -58,7 +58,7 @@ namespace test.TestIndex
         public void TestRangeIndexGetIndexPosition()
         {
             // Arrange
-            var index = new DataProcessor.source.Index.RangeIndex(1, 250, 8);
+            var index = new RangeIndex(1, 250, 8);
             // Act
             var positions = index.GetIndexPosition(17);
             // Assert
@@ -69,7 +69,7 @@ namespace test.TestIndex
         [Fact]
         public void TestApplyLinq()
         {
-            var index = new DataProcessor.source.Index.RangeIndex(1, 251, 8);
+            var index = new RangeIndex(1, 251, 8);
             // Act
             var result = index.Select(x => (int)x * 2).ToList();
             // Assert

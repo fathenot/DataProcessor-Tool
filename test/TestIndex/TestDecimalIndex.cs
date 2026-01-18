@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DataProcessor.source.Index;
+using DataProcessor.source.IndexTypes;
 namespace test.TestIndex
 {
     public class TestDecimalIndex
@@ -60,7 +60,7 @@ namespace test.TestIndex
             Assert.Equal(3.3m, slicedIndex.GetIndex(1));
             Assert.Equal(4.4m, slicedIndex.GetIndex(2));
 
-            var selectedIndex = index.Slice(new decimal[] { 1.1m, 3.3m, 4.4m }.Cast<object>().ToList());
+            var selectedIndex = index.TakeKeys(new decimal[] { 1.1m, 3.3m, 4.4m }.Cast<object>().ToList());
             Assert.Equal(3, selectedIndex.Count);
             Assert.Equal(1.1m, selectedIndex.GetIndex(0));
             Assert.Equal(3.3m, selectedIndex.GetIndex(1));

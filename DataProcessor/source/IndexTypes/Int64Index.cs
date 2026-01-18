@@ -1,6 +1,6 @@
-﻿namespace DataProcessor.source.Index
+﻿namespace DataProcessor.source.IndexTypes
 {
-    public class Int64Index : IIndex
+    public class Int64Index : DataIndex
     {
         private readonly List<long> indexList;
         private readonly Dictionary<long, List<int>> indexMap;
@@ -72,7 +72,7 @@
         }
 
         // Phương thức slice để lấy một phần của index
-        public override IIndex Slice(int start, int end, int step)
+        public override DataIndex Slice(int start, int end, int step)
         {
             List<object> slicedIndex = new List<object>();
             if (step == 0)
@@ -98,7 +98,7 @@
             return new Int64Index(slicedIndex.Cast<long>().ToList());  // Trả về Int64Index với List<long>
         }
 
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
            var slicedIndex = new List<long>();
             foreach (var item in indexList)
@@ -159,7 +159,7 @@
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new Int64Index(indexList);
         }

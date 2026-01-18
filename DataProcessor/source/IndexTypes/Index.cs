@@ -2,26 +2,26 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace DataProcessor.source.Index
+namespace DataProcessor.source.IndexTypes
 {
     /// <summary>
     /// Represents an abstract base class for indexing functionality in a DataFrame-like structure.
     /// Supports lookup, slicing, and metadata about the index.
     /// </summary>
-    public abstract class IIndex : IEnumerable<object>
+    public abstract class DataIndex : IEnumerable<object>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="IIndex"/> class.
+        /// Initializes a new instance of the <see cref="Index"/> class.
         /// This constructor is reserved for internal use by derived classes.
         /// </summary>
-        protected IIndex() { }
+        protected DataIndex() { }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IIndex"/> class using a list of index values.
+        /// Initializes a new instance of the <see cref="Index"/> class using a list of index values.
         /// This constructor is optional and may be used by subclasses for convenience.
         /// </summary>
         /// <param name="indexList">The list of index values.</param>
-        protected IIndex(List<object> indexList) { }
+        protected DataIndex(List<object> indexList) { }
 
         /// <summary>
         /// Gets the number of elements in the index.
@@ -67,17 +67,17 @@ namespace DataProcessor.source.Index
         /// <param name="start">The starting position (inclusive).</param>
         /// <param name="end">The ending position (exclusive).</param>
         /// <param name="step">The step between elements (default is 1).</param>
-        /// <returns>A new <see cref="IIndex"/> containing the sliced values.</returns>
-        public abstract IIndex Slice(int start, int end, int step = 1);
+        /// <returns>A new <see cref="DataIndex"/> containing the sliced values.</returns>
+        public abstract DataIndex Slice(int start, int end, int step = 1);
 
         /// <summary>
         /// Creates a new index by extracting elements from the current index based on the specified list of keys.
         /// </summary>
         /// <param name="indexList">A list of keys used to select elements from the current index. Each key must correspond to an existing
         /// element in the index.</param>
-        /// <returns>An <see cref="IIndex"/> containing the elements that match the specified keys.</returns>
+        /// <returns>An <see cref="Index"/> containing the elements that match the specified keys.</returns>
 
-        public abstract IIndex Slice(List<object> indexList);
+        public abstract DataIndex TakeKeys(List<object> indexList);
         /// <summary>
         /// Gets all distinct index values in the current index.
         /// </summary>
@@ -105,10 +105,10 @@ namespace DataProcessor.source.Index
             get => GetIndex(index);
             protected set
             {
-                throw new NotSupportedException("Setting index values is not supported in IIndex. Use derived classes for specific implementations.");
+                throw new NotSupportedException("Setting index values is not supported in Index. Use derived classes for specific implementations.");
             }
         }
 
-        public abstract IIndex Clone();
+        public abstract DataIndex Clone();
     }
 }

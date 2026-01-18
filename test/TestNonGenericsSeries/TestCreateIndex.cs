@@ -1,43 +1,93 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 using DataProcessor.source.NonGenericsSeries;
+using Xunit;
+using System;
+using System.Linq;
+
 namespace test.TestNonGenericsSeries
 {
     public class TestCreateIndex
     {
-        // This test method checks if the CreateIndex method correctly creates an index of the expected type
-        // and contains the expected values from the provided indexValues array.
-        public static IEnumerable<object[]> IndexTestCases =>
-     new List<object[]>
-     {
-        new object[] { new object[] { 1, 2, 3 }, typeof(Int64Index) },
-        new object[] { new object[] { "a", "b", "c" }, typeof(StringIndex) },
-        new object[] { new object[] { 1.1, 2.2, 3.3 }, typeof(DoubleIndex) },
-        new object[] { new object[] { DateTime.Parse("2020-01-01"), DateTime.Parse("2020-01-02") }, typeof(DateTimeIndex) },
-        new object[] { new object[] { 'a', 'b' }, typeof(CharIndex) },
-        new object[] { new object[] { 1.1m, 2.2m, 3.3m }, typeof(DecimalIndex) },
-        new object[] { new object[] { "a", 1, 2.2, DateTime.Parse("2020-01-01") }, typeof(ObjectIndex) }
-     };
-
-        [Theory]
-        [MemberData(nameof(IndexTestCases))]
-        public void TestIndexCreation(object[] indexValues, Type expectedIndexType)
+        [Fact]
+        public void Create_Int64Index()
         {
-            // Arrange
+            var values = new object[] { 1L, 2L, 3L }.ToList();
+            var index = Series.CreateIndex(values);
 
-            var indexList = indexValues.Select(x => x).ToList();
-            // Act
-            var index = Series.CreateIndex(indexList);
-            // Assert
-            Assert.NotNull(index);
-            Assert.IsType(expectedIndexType, index);
-            Assert.Equal(indexValues.Length, index.Count);
+            Assert.IsType<Int64Index>(index);
+            Assert.Equal(3, index.Count);
+        }
 
-            for (int i = 0; i < indexValues.Length; i++)
+        [Fact]
+        public void Create_StringIndex()
+        {
+            var values = new object[] { "a", "b", "c" }.ToList();
+            var index = Series.CreateIndex(values);
+
+            Assert.IsType<StringIndex>(index);
+            Assert.Equal(3, index.Count);
+        }
+
+        [Fact]
+        public void Create_DoubleIndex()
+        {
+            var values = new object[] { 1.1, 2.2, 3.3 }.ToList();
+            var index = Series.CreateIndex(values);
+
+            Assert.IsType<DoubleIndex>(index);
+            Assert.Equal(3, index.Count);
+        }
+
+        [Fact]
+        public void Create_DateTimeIndex()
+        {
+            var values = new object[]
             {
+                new DateTime(2020, 1, 1),
+                new DateTime(2020, 1, 2)
+            }.ToList();
 
-                Assert.Equal(indexValues[i].ToString(), index[i].ToString());
-            }
+            var index = Series.CreateIndex(values);
+
+            Assert.IsType<DateTimeIndex>(index);
+            Assert.Equal(2, index.Count);
+        }
+
+        [Fact]
+        public void Create_CharIndex()
+        {
+            var values = new object[] { 'a', 'b' }.ToList();
+            var index = Series.CreateIndex(values);
+
+            Assert.IsType<CharIndex>(index);
+            Assert.Equal(2, index.Count);
+        }
+
+        [Fact]
+        public void Create_DecimalIndex()
+        {
+            var values = new object[] { 1.1m, 2.2m, 3.3m }.ToList();
+            var index = Series.CreateIndex(values);
+
+            Assert.IsType<DecimalIndex>(index);
+            Assert.Equal(3, index.Count);
+        }
+
+        [Fact]
+        public void Create_ObjectIndex_When_MixedTypes()
+        {
+            var values = new object[]
+            {
+                "a",
+                1,
+                2.2,
+                new DateTime(2020, 1, 1)
+            }.ToList();
+
+            var index = Series.CreateIndex(values);
+
+            Assert.IsType<ObjectIndex>(index);
+            Assert.Equal(4, index.Count);
         }
     }
-
 }

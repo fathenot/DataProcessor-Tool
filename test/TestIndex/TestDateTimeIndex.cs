@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 namespace test.TestIndex
 {
     public class TestDateTimeIndex
@@ -62,7 +62,7 @@ namespace test.TestIndex
             var dateTimeIndex = new DateTimeIndex(new List<DateTime> { new DateTime(2023, 10, 1), new DateTime(2023, 10, 2), new DateTime(2023, 10, 3) });
             // Act
             var slicedIndex = dateTimeIndex.Slice(1, 2);
-            var slicedIndex2 = dateTimeIndex.Slice(new List<DateTime>{ new DateTime(2023, 10, 1), new DateTime(2023, 10, 2)}.Cast<object>().ToList());
+            var slicedIndex2 = dateTimeIndex.TakeKeys(new List<DateTime>{ new DateTime(2023, 10, 1), new DateTime(2023, 10, 2)}.Cast<object>().ToList());
             // Assert
             Assert.Equal(2, slicedIndex.Count);
             Assert.Contains(new DateTime(2023, 10, 2), slicedIndex);

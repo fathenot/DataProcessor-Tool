@@ -1,6 +1,6 @@
-﻿namespace DataProcessor.source.Index
+﻿namespace DataProcessor.source.IndexTypes
 {
-    public class ObjectIndex : IIndex
+    public class ObjectIndex : DataIndex
     {
         private readonly List<object> objects;
         private readonly Dictionary<object, List<int>> indexMap;
@@ -58,7 +58,7 @@
             throw new KeyNotFoundException($"Key {key} not found in index.");
         }
 
-        public override IIndex Slice(int start, int end, int step = 1)
+        public override DataIndex Slice(int start, int end, int step = 1)
         {
             // Validate the parameters
             if (step == 0)
@@ -90,7 +90,7 @@
             return new ObjectIndex(slicedObjects);
         }
 
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
             List<object> slicedObjects = new List<object>();
             foreach (var item in indexList)
@@ -150,7 +150,7 @@
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new ObjectIndex(objects);
         }

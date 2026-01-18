@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 
 namespace DataProcessor.Tests.Index
 {
@@ -215,7 +215,7 @@ namespace DataProcessor.Tests.Index
                 new object[] {"A", 3}
             };
             var multiIndex = new MultiIndex(data);
-            var sliced = multiIndex.Slice(new List<object>
+            var sliced = multiIndex.TakeKeys(new List<object>
             {
                 (new object[] { "A", 1 })
             });
@@ -234,7 +234,7 @@ namespace DataProcessor.Tests.Index
                 new object[] {"C", 4}
             };
             var multiIndex = new MultiIndex(data);
-            Assert.Throws<ArgumentException>(()=>multiIndex.Slice(new List<object> { "A", "B" }));
+            Assert.Throws<ArgumentException>(()=>multiIndex.TakeKeys(new List<object> { "A", "B" }));
         }
 
         [Fact]

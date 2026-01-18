@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace DataProcessor.source.Index
+namespace DataProcessor.source.IndexTypes
 {
 
     /// <summary>
@@ -64,7 +64,7 @@ namespace DataProcessor.source.Index
     /// <summary>
     /// this class represents a multi-index, which is a collection of multi-keys.
     /// </summary>
-    public class MultiIndex : IIndex
+    public class MultiIndex : DataIndex
     {
         private List<MultiKey> indexList;
         private Dictionary<MultiKey, List<int>> indexMap;
@@ -120,7 +120,7 @@ namespace DataProcessor.source.Index
             return new MultiIndex(slicedList);
         }
 
-        public override IIndex Slice(List<object> key)
+        public override DataIndex TakeKeys(List<object> key)
         {
             // convert elemeents of key to MultiKey forrmat
             var convertedToMultikeys = key.Select(k =>
@@ -268,7 +268,7 @@ namespace DataProcessor.source.Index
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new MultiIndex(indexList);
         }
