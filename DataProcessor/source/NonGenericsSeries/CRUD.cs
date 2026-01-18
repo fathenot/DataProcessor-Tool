@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 using System.Collections;
 using System.Data.SqlTypes;
 namespace DataProcessor.source.NonGenericsSeries
@@ -37,7 +37,7 @@ namespace DataProcessor.source.NonGenericsSeries
           IEnumerable<object>? index = null,
           Type? dtype = null,
           string? name = null,
-          bool copy = false)
+          bool copy = true)
         {
             List<object?> values;
             List<object>? finalIndex = null;

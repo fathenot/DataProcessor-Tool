@@ -1,5 +1,5 @@
 ﻿using DataProcessor.source.GenericsSeries;
-using DataProcessor.source.Index;
+using DataProcessor.source.IndexTypes;
 using DataProcessor.source.ValueStorage;
 
 namespace DataProcessor.source.NonGenericsSeries

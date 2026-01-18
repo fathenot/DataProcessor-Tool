@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 using DataProcessor.source.ValueStorage;
 using System.Collections;
 using System.ComponentModel;
@@ -12,7 +12,7 @@ namespace DataProcessor.source.NonGenericsSeries
     {
 
         private string? seriesName;
-        private IIndex index;
+        private DataIndex index;
         private AbstractValueStorage valueStorage;
         public Type dataType; // data type of the series, can be null if empty or not set
 
@@ -275,10 +275,6 @@ namespace DataProcessor.source.NonGenericsSeries
 
         public IEnumerable<T?> AsTyped<T>()
         {
-            if (typeof(T).IsAssignableFrom(dataType))
-            {
-                return valueStorage.AsTyped<T>();
-            }
             return valueStorage.AsTyped<T>();
         }
     }

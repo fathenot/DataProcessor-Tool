@@ -1,9 +1,9 @@
 ﻿using System.Collections;
 using System.Text;
 
-namespace DataProcessor.source.Index
+namespace DataProcessor.source.IndexTypes
 {
-    public class StringIndex : IIndex, IEnumerable<string>
+    public class StringIndex : DataIndex, IEnumerable<string>
     {
         private readonly string[] stringIndexes;
         private readonly Dictionary<string, List<int>> indexMap;
@@ -80,10 +80,10 @@ namespace DataProcessor.source.Index
         /// <param name="end">The ending index of the slice. Must be within the bounds of the current index.</param>
         /// <param name="step">The step size for the slice. A positive value slices forward, and a negative value slices backward. Must not
         /// be 0.</param>
-        /// <returns>A new <see cref="IIndex"/> containing the elements from the current index that match the specified slicing
+        /// <returns>A new <see cref="Index"/> containing the elements from the current index that match the specified slicing
         /// criteria.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="step"/> is 0.</exception>
-        public override IIndex Slice(int start, int end, int step = 1)
+        public override DataIndex Slice(int start, int end, int step = 1)
         {
             List<string> slicedIndex = new List<string>();
 
@@ -108,7 +108,7 @@ namespace DataProcessor.source.Index
             return new StringIndex(slicedIndex);
         }
 
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
             List<string> slicedIndex = new List<string>();
             foreach (var item in indexList)
@@ -262,7 +262,7 @@ namespace DataProcessor.source.Index
 
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new StringIndex(stringIndexes.ToList());
         }

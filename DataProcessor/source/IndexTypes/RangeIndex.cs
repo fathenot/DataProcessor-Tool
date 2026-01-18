@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 
-namespace DataProcessor.source.Index
+namespace DataProcessor.source.IndexTypes
 {
-    public class RangeIndex : IIndex
+    public class RangeIndex : DataIndex
     {
         private readonly int _start;
         private readonly int _stop;
@@ -55,8 +55,8 @@ namespace DataProcessor.source.Index
         /// <param name="start">The zero-based starting index of the slice, relative to the current range.</param>
         /// <param name="end">The zero-based ending index of the slice, relative to the current range. The slice will exclude this index.</param>
         /// <param name="step">The step size for the slice. Defaults to 1. Must be a non-zero value.</param>
-        /// <returns>A new <see cref="IIndex"/> representing the sliced range.</returns>
-        public override IIndex Slice(int start, int end, int step = 1)
+        /// <returns>A new <see cref="Index"/> representing the sliced range.</returns>
+        public override DataIndex Slice(int start, int end, int step = 1)
         {
             if (step == 0)
                 throw new ArgumentException("Step must not be zero.", nameof(step));
@@ -69,7 +69,7 @@ namespace DataProcessor.source.Index
             return new RangeIndex(actualStart, actualStop, combinedStep);
         }
 
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
             if (indexList.Cast<int>().Any(v => v < _start || v > this._stop))
             {
@@ -168,7 +168,7 @@ namespace DataProcessor.source.Index
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new RangeIndex(Start, Stop, Step);
         }

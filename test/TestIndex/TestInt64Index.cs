@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 namespace test.TestIndex
 {
     public class TestInt64Index

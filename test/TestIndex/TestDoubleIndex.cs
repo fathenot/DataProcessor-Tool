@@ -1,4 +1,5 @@
-﻿namespace test.TestIndex
+﻿using DataProcessor.source.IndexTypes;
+namespace test.TestIndex
 {
     public class TestDoubleIndex
     {
@@ -10,7 +11,7 @@
         {
             // Arrange
             var doubleValues = new double[] { 1.1, 2.2, 3.3, 4.4, 5.5 };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
 
             // Act
             var count = index.Count;
@@ -26,7 +27,7 @@
         {
             // Arrange
             var doubleValues = new double[] { 1.1, 2.2, 3.3, 4.4, 5.5 };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
             // Act
             var containsValue = index.Contains(3.3);
             // Assert
@@ -43,7 +44,7 @@
                 901.234,
                 567.890
             };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
             // Act
             var positions = index.GetIndexPosition(345.678);
             // Assert
@@ -56,7 +57,7 @@
         {
             var doubleValues = new double[] {
                 419847.179854, 981759817.1414,1412334.32541,1413145.534,1243134.125312, 1413145.534 };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
             // Act
             var positions = index.GetIndexPosition(1413145.534);
             // Assert
@@ -70,14 +71,14 @@
         {
             // Arrange
             var doubleValues = new double[] { 1.1, 2.2, 3.3, 4.4, 5.5,7.7, 6.8 };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
             // Act
             var slicedIndex = index.Slice(1, 4, 1);
             // Assert
             Assert.Equal(4, slicedIndex.Count);
             Assert.Equal(2.2, slicedIndex.GetIndex(0));
             Assert.Equal(3.3, slicedIndex.GetIndex(1));
-            var newSlicedIndex = index.Slice(new List<object> { 1.1, 3.3, 5.5 });
+            var newSlicedIndex = index.TakeKeys(new List<object> { 1.1, 3.3, 5.5 });
             Assert.Equal(3, newSlicedIndex.Count);
             Assert.Equal(1.1, newSlicedIndex.GetIndex(0));
             Assert.Equal(3.3, newSlicedIndex.GetIndex(1));
@@ -89,7 +90,7 @@
         {
             // Arrange
             var doubleValues = new double[] { 1.1, 2.2, 3.3, 4.4, 5.5 };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
             // Act
             var count = index.Count;
             // Assert
@@ -101,7 +102,7 @@
         {
             // Arrange
             var doubleValues = new double[] { 1.1, 2.2, 3.3, 4.4, 5.5, 7.7, 6.8 };
-            var index = new DataProcessor.source.Index.DoubleIndex(doubleValues.ToList());
+            var index = new DoubleIndex(doubleValues.ToList());
             // Act
             var filteredValues = index.Where(x => (double)x > 3.0).ToList();
             // Assert

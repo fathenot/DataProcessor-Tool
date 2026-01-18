@@ -1,5 +1,5 @@
 ﻿using DataProcessor.source.GenericsSeries;
-using DataProcessor.source.Index;
+using DataProcessor.source.IndexTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;

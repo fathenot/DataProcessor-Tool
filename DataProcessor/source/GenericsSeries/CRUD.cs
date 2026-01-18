@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 using DataProcessor.source.NonGenericsSeries;
 using System;
 using System.Collections.Generic;

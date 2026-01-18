@@ -5,9 +5,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataProcessor.source.Index
+namespace DataProcessor.source.IndexTypes
 {
-    public class CharIndex : IIndex
+    public class CharIndex : DataIndex
     {
         private readonly List<char> indexList;
         private readonly Dictionary<char, List<int>> indexMap;
@@ -25,7 +25,7 @@ namespace DataProcessor.source.Index
         {
             this.indexList = indexList;
             indexMap = new Dictionary<char, List<int>>();
-            // Xây dựng dictionary ánh xạ giữa index và các vị trí
+            // Xây dựng dictionary ánh xạ giữa DataIndex và các vị trí
             for (int i = 0; i < indexList.Count; i++)
             {
                 char key = indexList[i];
@@ -48,9 +48,9 @@ namespace DataProcessor.source.Index
             }
             throw new ArgumentException($"{nameof(key)} must be char");
         }
-        public override IReadOnlyList<int> GetIndexPosition(object index)
+        public override IReadOnlyList<int> GetIndexPosition(object DataIndex)
         {
-            return indexMap[(char)index];
+            return indexMap[(char)DataIndex];
         }
 
         public override object GetIndex(int idx)
@@ -62,14 +62,14 @@ namespace DataProcessor.source.Index
         {
             if (key is char ch)
             {
-                this.indexMap.TryGetValue(ch, out var index);
-                if (index != null)
-                    return index[0];
+                this.indexMap.TryGetValue(ch, out var DataIndex);
+                if (DataIndex != null)
+                    return DataIndex[0];
                 return -1;
             }
             throw new ArgumentException($"{nameof(key)} must be chracter");
         }
-        public override IIndex Slice(int start, int end, int step = 1)
+        public override DataIndex Slice(int start, int end, int step = 1)
         {
             List<object> slicedIndex = new List<object>();
             //validate parameters
@@ -79,7 +79,7 @@ namespace DataProcessor.source.Index
             }
             if(start < 0 || end < 0 || start >= indexList.Count || end >= indexList.Count)
             {
-                throw new ArgumentOutOfRangeException("start or end is out of range of the index list.");
+                throw new ArgumentOutOfRangeException("start or end is out of range of the DataIndex list.");
             }
             // Kiểm tra điều kiện bước nhảy âm
             if (step > 0)
@@ -100,21 +100,21 @@ namespace DataProcessor.source.Index
             return new CharIndex(slicedIndex.Cast<char>().ToList());  // Trả về CharIndex với List<char>
         }
 
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
             var slicedIndex = new List<char>();
             foreach (var item in indexList)
             {
                 if (item is char chn && indexMap.ContainsKey(chn))
                 {
-                    foreach (var index in indexMap[chn])
+                    foreach (var DataIndex in indexMap[chn])
                     {
                         slicedIndex.Add(chn);
                     }
                 }
                 else
                 {
-                    throw new ArgumentException($"All items in indexList must be of type char or in the index list");
+                    throw new ArgumentException($"All items in indexList must be of type char or in the DataIndex list");
                 }
             }
 
@@ -132,21 +132,21 @@ namespace DataProcessor.source.Index
                 yield return item;
         }
 
-        public override object this[int index]
+        public override object this[int DataIndex]
         {
             protected set
             {
-                if (index < 0 || index >= indexList.Count)
+                if (DataIndex < 0 || DataIndex >= indexList.Count)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                    throw new ArgumentOutOfRangeException(nameof(DataIndex), "DataIndex is out of range.");
                 }
-                char oldValue = indexList[index];
-                indexList[index] = (char)value;
+                char oldValue = indexList[DataIndex];
+                indexList[DataIndex] = (char)value;
                 
                 // Cập nhật indexMap
                 if (indexMap.ContainsKey(oldValue))
                 {
-                    indexMap[oldValue].Remove(index);
+                    indexMap[oldValue].Remove(DataIndex);
                     if (!indexMap[oldValue].Any())
                     {
                         indexMap.Remove(oldValue);
@@ -157,11 +157,11 @@ namespace DataProcessor.source.Index
                 {
                     indexMap[(char)value] = new List<int>();
                 }
-                indexMap[(char)value].Add(index);
+                indexMap[(char)value].Add(DataIndex);
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new CharIndex(indexList);
         }

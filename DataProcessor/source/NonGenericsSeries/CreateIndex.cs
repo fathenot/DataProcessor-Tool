@@ -1,5 +1,5 @@
 ﻿
-using DataProcessor.source.Index;
+using DataProcessor.source.IndexTypes;
 using NUnit.Framework;
 
 namespace DataProcessor.source.NonGenericsSeries
@@ -14,13 +14,13 @@ namespace DataProcessor.source.NonGenericsSeries
         /// <see cref="MultiIndex"/>. For other cases, the method uses the inferred data type to create a specific index
         /// type.</remarks>
         /// <param name="index">A list of objects to be used for creating the index. The list must not contain null values.</param>
-        /// <returns>An implementation of <see cref="IIndex"/> that corresponds to the data type of the elements in the provided
+        /// <returns>An implementation of <see cref="Index"/> that corresponds to the data type of the elements in the provided
         /// list. If the list contains grouped index elements, a <see cref="MultiIndex"/> is returned. Otherwise, the
         /// method returns a specific index type such as <see cref="StringIndex"/>, <see cref="Int64Index"/>, <see
         /// cref="DateTimeIndex"/>, <see cref="DoubleIndex"/>, <see cref="CharIndex"/>, <see cref="DecimalIndex"/>, or
         /// <see cref="ObjectIndex"/> based on the inferred data type of the list elements.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="index"/> contains null values.</exception>
-        internal static IIndex CreateIndex(List<object> index = null)
+        internal static DataIndex CreateIndex(List<object> index = null)
         {
             // validate the index to ensure it does not contains null values (currently it doesn't check all elements are hashable)
             if (index.Contains(null)) throw new ArgumentException("index must not contain nulls");

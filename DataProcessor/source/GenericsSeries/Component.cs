@@ -1,7 +1,7 @@
-﻿using DataProcessor.source.Index;
-using DataProcessor.source.UserSettings.DefaultValsGenerator;
+﻿using DataProcessor.source.UserSettings.DefaultValsGenerator;
 using DataProcessor.source.ValueStorage;
 using System.Collections;
+using DataProcessor.source.IndexTypes;
 using System.Text;
 
 namespace DataProcessor.source.GenericsSeries
@@ -20,7 +20,7 @@ namespace DataProcessor.source.GenericsSeries
     {
         private string? name;
         private GenericsStorage<DataType> values; // this is the storage of the series values
-        private IIndex index; // this is the index of the series, it can be any type of index
+        private DataIndex index; // this is the index of the series, it can be any type of index
 
         public sealed class GenericsSeriesEnumerator : IEnumerator<DataType>
         {

@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace DataProcessor.source.Index
+namespace DataProcessor.source.IndexTypes
 {
-    public class DateTimeIndex : IIndex
+    public class DateTimeIndex : DataIndex
     {
         private readonly List<DateTime> dateTimes;
         private readonly Dictionary<DateTime, List<int>> indexMap;
@@ -73,7 +73,7 @@ namespace DataProcessor.source.Index
                 return indexMap[tmp][0];
             return -1;
         }
-        public override IIndex Slice(int start, int end, int step = 1)
+        public override DataIndex Slice(int start, int end, int step = 1)
         {
             List<DateTime> slicedIndex = new List<DateTime>();
             // validate parameters
@@ -103,7 +103,7 @@ namespace DataProcessor.source.Index
             return new DateTimeIndex(slicedIndex);
         }
 
-        public override IIndex Slice(List<object> indexList)
+        public override DataIndex TakeKeys(List<object> indexList)
         {
             List<DateTime> slicedIndex = new List<DateTime>();
             foreach (var item in indexList)
@@ -160,7 +160,7 @@ namespace DataProcessor.source.Index
             }
         }
 
-        public override IIndex Clone()
+        public override DataIndex Clone()
         {
             return new DateTimeIndex(dateTimes);
         }

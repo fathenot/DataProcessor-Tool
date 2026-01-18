@@ -1,4 +1,4 @@
-﻿using DataProcessor.source.Index;
+﻿using DataProcessor.source.IndexTypes;
 namespace test.TestIndex
 {
     public class TestObjectIndex
@@ -30,14 +30,14 @@ namespace test.TestIndex
         {
             // Arrange
             var doubleValues = new Object[] { 1.1, 2.2, 3.3, 4.4, 5.5, 7.7, 6.8 };
-            var index = new DataProcessor.source.Index.ObjectIndex(doubleValues.Cast<object>().ToList());
+            var index = new ObjectIndex(doubleValues.Cast<object>().ToList());
             // Act
             var slicedIndex = index.Slice(1, 4, 1);
             // Assert
             Assert.Equal(4, slicedIndex.Count);
             Assert.Equal(2.2, slicedIndex.GetIndex(0));
             Assert.Equal(3.3, slicedIndex.GetIndex(1));
-            var newSlicedIndex = index.Slice(new List<object> { 1.1, 3.3, 5.5 });
+            var newSlicedIndex = index.TakeKeys(new List<object> { 1.1, 3.3, 5.5 });
             Assert.Equal(3, newSlicedIndex.Count);
             Assert.Equal(1.1, newSlicedIndex.GetIndex(0));
             Assert.Equal(3.3, newSlicedIndex.GetIndex(1));
@@ -89,7 +89,7 @@ namespace test.TestIndex
 
             var sliceKeys = new List<object> { "x", "a", "z" }; // "a" không có
 
-            Assert.Throws<ArgumentException>(() => index.Slice(sliceKeys));
+            Assert.Throws<ArgumentException>(() => index.TakeKeys(sliceKeys));
         }
 
         [Fact]
@@ -98,7 +98,7 @@ namespace test.TestIndex
             var values = new object[] { "x", "y", "z" };
             var index = new ObjectIndex(values.ToList());
             var sliceKeys = new List<object> { "x", null, "z" }; // null không hợp lệ
-            Assert.Throws<ArgumentException>(() => index.Slice(sliceKeys));
+            Assert.Throws<ArgumentException>(() => index.TakeKeys(sliceKeys));
         }
 
         [Fact]
