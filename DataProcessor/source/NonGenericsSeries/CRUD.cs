@@ -1,4 +1,5 @@
 ﻿using DataProcessor.source.IndexTypes;
+using DataProcessor.source.ValueStorage;
 using System.Collections;
 using System.Data.SqlTypes;
 namespace DataProcessor.source.NonGenericsSeries
@@ -153,5 +154,11 @@ namespace DataProcessor.source.NonGenericsSeries
             }
         }
 
+        internal Series(AbstractValueStorage storage, DataIndex index)
+        {
+            this.valueStorage = storage;
+            this.index = index;
+            this.dataType = storage.ElementType;
+        }
     }
 }
