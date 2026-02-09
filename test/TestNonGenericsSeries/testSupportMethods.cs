@@ -12,7 +12,7 @@ namespace test.TestNonGenericsSeries
         [InlineData(typeof(uint), true)]
         [InlineData(typeof(nint), true)]
         [InlineData(typeof(nuint), true)]
-        [InlineData(typeof(ulong), false)]
+        [InlineData(typeof(ulong), true)]
         [InlineData(typeof(float), false)]
         [InlineData(typeof(string), false)]
         public void IsIntegerType_ReturnsExpectedResult(Type type, bool expected)
