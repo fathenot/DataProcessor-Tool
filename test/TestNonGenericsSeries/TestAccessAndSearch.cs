@@ -157,5 +157,27 @@ namespace test.TestNonGenericsSeries
             Assert.True(nullPos.SequenceEqual(new List<int> { 1,4, 6,9 }));
 
         }
+        [Fact]
+        public void GetDataAtSpecificPos()
+        {
+            List<object?> data = new List<object?>
+            {
+                42,
+                null,
+                "Hello",
+                DateTime.Now,
+                null,
+                3.14,
+                null,
+                Guid.NewGuid(),
+                "World",
+                null
+            };
+
+            // Nhiệm vụ: tìm index của tất cả phần tử null
+            var series = new Series(data);
+            var value = series.GetValueIntloc(1);
+            Assert.Null(value);
+        }
     }
 }
